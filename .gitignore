@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# env — MAI committare segreti
+.env
+.env*.local
+
+# firebase service account (se mai lo scarichi in locale)
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
+# vercel
+.vercel
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# os
+.DS_Store
+
+# claude code local settings
+.claude/settings.local.json
