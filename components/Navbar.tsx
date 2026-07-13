@@ -4,14 +4,16 @@ import Link from "next/link";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
+import FlamingoMascot from "./FlamingoMascot";
 
 export default function Navbar() {
   const { user, profile, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-100 bg-white/90 px-4 backdrop-blur">
-      <Link href="/" className="text-lg font-bold text-brand-700">
-        TravelWorld
+      <Link href="/" className="flex items-center gap-2 text-lg font-bold text-brand-700">
+        <FlamingoMascot className="h-8 w-8" />
+        WikiTravels
       </Link>
       <nav className="flex items-center gap-2 text-sm">
         {loading ? null : user ? (
