@@ -11,6 +11,7 @@
  */
 
 import { getAdminDb, getAdminStorage } from "../lib/firebase-admin";
+import { INTEREST_KEYS } from "../lib/interests";
 
 // ------------------------------------------------------------------
 // 1. DESTINAZIONI con "tier" — tier 1 = mete più cercate, si esauriscono
@@ -46,10 +47,6 @@ const VIBES = [
   "tour enogastronomico", "trekking estremo", "viaggio zaino in spalla",
   "luna di miele", "ecoturismo", "weekend lungo", "viaggio spirituale",
 ];
-
-const INTEREST_KEYS = [
-  "avventura", "natura", "divertimento", "lusso", "storia", "shopping", "religione",
-] as const;
 
 // ------------------------------------------------------------------
 // 2. Sceglie la prossima destinazione: prima tier 1 non ancora usati
