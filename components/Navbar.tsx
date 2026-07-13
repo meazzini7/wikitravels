@@ -15,18 +15,46 @@ export default function Navbar() {
         <FlamingoMascot className="h-8 w-8" />
         WikiTravels
       </Link>
-      <nav className="flex items-center gap-2 text-sm">
+      <nav className="flex items-center gap-1 text-sm">
         {loading ? null : user ? (
           <>
             <Link
+              href="/feed"
+              className="hidden min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700 sm:flex"
+            >
+              Feed
+            </Link>
+            <Link
               href="/viaggi"
-              className="flex min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700"
+              className="hidden min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700 sm:flex"
             >
               Viaggi
             </Link>
-            <span className="hidden text-gray-600 sm:inline">
+            <Link
+              href="/classifica"
+              className="hidden min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700 sm:flex"
+            >
+              Classifica
+            </Link>
+            <Link
+              href="/chat"
+              className="hidden min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700 sm:flex"
+            >
+              Chat
+            </Link>
+            <Link
+              href="/notifiche"
+              className="flex min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700"
+              aria-label="Notifiche"
+            >
+              🔔
+            </Link>
+            <Link
+              href="/profilo"
+              className="hidden text-gray-600 hover:text-brand-700 sm:inline"
+            >
               {profile?.displayName ?? user.email}
-            </span>
+            </Link>
             <button
               onClick={() => signOut(getFirebaseAuth())}
               className="flex min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700"

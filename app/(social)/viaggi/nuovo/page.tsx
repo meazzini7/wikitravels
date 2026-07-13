@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { doc, writeBatch } from "firebase/firestore";
+import { doc, increment, writeBatch } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { generateId } from "@/lib/id";
 import { distributeDates, formatISODate, totalTripDistanceKm } from "@/lib/travel-utils";
+import { defaultInterestScores } from "@/lib/interests";
 import FlamingoMascot from "@/components/FlamingoMascot";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), {
@@ -27,7 +28,7 @@ const STEP_LABELS = ["Dettagli", "Tappe", "Copertina", "Riepilogo"];
 
 export default function NuovoViaggioPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [tripId] = useState(() => generateId());
   const [step, setStep] = useState(1);
 
@@ -112,6 +113,9 @@ export default function NuovoViaggioPage() {
       batch.set(tripRef, {
         id: tripId,
         authorId: user.uid,
+        authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
+        authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
+        authorInterests: profile?.interests ?? defaultInterestScores(),
         title: title.trim(),
         description: description.trim(),
         startDate,
@@ -133,6 +137,10 @@ export default function NuovoViaggioPage() {
           startDate: range ? formatISODate(range.start) : startDate,
           endDate: range ? formatISODate(range.end) : endDate,
         });
+      });
+      batch.update(doc(db, "users", user.uid), {
+        "stats.tripsCount": increment(1),
+        "stats.totalDistanceKm": increment(totalDistance),
       });
       await batch.commit();
       router.push(`/viaggi/${tripId}`);

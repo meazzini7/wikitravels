@@ -27,18 +27,23 @@ export default function TripDetailPage() {
     const db = getFirebaseDb();
     const tripId = params.tripId;
     (async () => {
-      const tripSnap = await getDoc(doc(db, "trips", tripId));
-      if (!tripSnap.exists()) {
+      try {
+        const tripSnap = await getDoc(doc(db, "trips", tripId));
+        if (!tripSnap.exists()) {
+          setNotFound(true);
+          return;
+        }
+        setTrip(tripSnap.data() as Trip);
+        const stopsSnap = await getDocs(
+          query(collection(db, "trips", tripId, "stops"), orderBy("order", "asc"))
+        );
+        setStops(stopsSnap.docs.map((d) => d.data() as TripStop));
+      } catch (err) {
+        console.error("Impossibile caricare il viaggio:", err);
         setNotFound(true);
+      } finally {
         setLoadingTrip(false);
-        return;
       }
-      setTrip(tripSnap.data() as Trip);
-      const stopsSnap = await getDocs(
-        query(collection(db, "trips", tripId, "stops"), orderBy("order", "asc"))
-      );
-      setStops(stopsSnap.docs.map((d) => d.data() as TripStop));
-      setLoadingTrip(false);
     })();
   }, [params.tripId]);
 

@@ -22,6 +22,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     interests: defaultInterestScores(),
     onboardingCompleted: false,
     createdAt: Date.now(),
+    stats: { tripsCount: 0, totalDistanceKm: 0, followersCount: 0, followingCount: 0 },
   };
   await setDoc(ref, profile);
   return profile;

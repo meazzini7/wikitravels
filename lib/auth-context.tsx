@@ -43,10 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(doc(getFirebaseDb(), "users", user.uid), (snap) => {
-      setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
-      setLoading(false);
-    });
+    return onSnapshot(
+      doc(getFirebaseDb(), "users", user.uid),
+      (snap) => {
+        setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Impossibile caricare il profilo:", err);
+        setLoading(false);
+      }
+    );
   }, [user]);
 
   return (

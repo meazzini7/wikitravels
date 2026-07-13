@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
+import BottomNav from "@/components/BottomNav";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -34,7 +35,8 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <Navbar />
-          {children}
+          <div className="pb-16 sm:pb-0">{children}</div>
+          <BottomNav />
         </AuthProvider>
       </body>
     </html>

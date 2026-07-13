@@ -26,6 +26,7 @@ export default function ViaggiPage() {
     );
     getDocs(q)
       .then((snap) => setTrips(snap.docs.map((d) => d.data() as Trip)))
+      .catch((err) => console.error("Impossibile caricare i viaggi:", err))
       .finally(() => setLoadingTrips(false));
   }, [user]);
 

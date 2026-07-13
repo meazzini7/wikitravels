@@ -1,5 +1,12 @@
 import type { InterestScores } from "./interests";
 
+export interface UserStats {
+  tripsCount: number;
+  totalDistanceKm: number;
+  followersCount: number;
+  followingCount: number;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -9,6 +16,7 @@ export interface UserProfile {
   interests: InterestScores;
   onboardingCompleted: boolean;
   createdAt: number;
+  stats: UserStats;
 }
 
 export interface TripStop {
@@ -24,6 +32,9 @@ export interface TripStop {
 export interface Trip {
   id: string;
   authorId: string;
+  authorDisplayName: string;
+  authorPhotoURL: string | null;
+  authorInterests: InterestScores;
   title: string;
   description: string;
   startDate: string;
@@ -33,4 +44,28 @@ export interface Trip {
   status: "draft" | "published";
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Notification {
+  id: string;
+  type: "follow";
+  fromUid: string;
+  fromDisplayName: string;
+  fromPhotoURL: string | null;
+  createdAt: number;
+  read: boolean;
+}
+
+export interface ChatSummary {
+  id: string;
+  participants: [string, string];
+  lastMessage: string;
+  lastMessageAt: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  createdAt: number;
 }

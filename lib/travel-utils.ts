@@ -1,3 +1,5 @@
+import { INTEREST_KEYS, type InterestScores } from "./interests";
+
 export interface LatLng {
   lat: number;
   lng: number;
@@ -53,4 +55,13 @@ export function distributeDates(startDate: Date, endDate: Date, stopsCount: numb
 
 export function formatISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+// Percentuale di affinità (0-100) tra due vettori di interesse (scala 1-10
+// su ognuna delle 7 chiavi): usata nel feed pubblico per suggerire viaggi
+// in base a quanto gli interessi dell'autore assomigliano ai propri.
+export function computeMatchScore(a: InterestScores, b: InterestScores): number {
+  const diffs = INTEREST_KEYS.map((key) => Math.abs(a[key] - b[key]) / 9);
+  const avgDiff = diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
+  return Math.round((1 - avgDiff) * 100);
 }
