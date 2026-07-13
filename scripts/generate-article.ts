@@ -10,8 +10,10 @@
  * oppure manualmente con `npm run generate:article`.
  */
 
-import { getAdminDb, getAdminStorage } from "../lib/firebase-admin";
+import { getAdminDb } from "../lib/firebase-admin";
 import { INTEREST_KEYS } from "../lib/interests";
+import { askGemini } from "../lib/server/gemini";
+import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
 
 // ------------------------------------------------------------------
 // 1. DESTINAZIONI con "tier" — tier 1 = mete più cercate, si esauriscono
@@ -74,64 +76,7 @@ async function pickNextDestination(): Promise<Dest> {
 }
 
 // ------------------------------------------------------------------
-// 3. Chiamata a Gemini (testo articolo)
-// ------------------------------------------------------------------
-async function askGemini(prompt: string): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
-  const model = "gemini-2.5-flash";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-        ],
-      }),
-    }
-  );
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-}
-
-// ------------------------------------------------------------------
-// 4. Unsplash: cerca + scarica un'immagine, la carica su Firebase Storage
-// ------------------------------------------------------------------
-async function fetchAndUploadImage(query: string, path: string) {
-  const key = process.env.UNSPLASH_ACCESS_KEY;
-  const searchRes = await fetch(
-    `https://api.unsplash.com/photos/random?query=${encodeURIComponent(
-      query
-    )}&orientation=landscape&content_filter=high&client_id=${key}`,
-    { headers: { "Accept-Version": "v1" } }
-  );
-  if (!searchRes.ok) return null;
-  const photo = await searchRes.json();
-  const imgUrl = photo?.urls?.regular;
-  if (!imgUrl) return null;
-
-  const imgRes = await fetch(imgUrl);
-  const buffer = Buffer.from(await imgRes.arrayBuffer());
-
-  const bucket = getAdminStorage().bucket();
-  const file = bucket.file(path);
-  await file.save(buffer, { contentType: "image/jpeg", public: true });
-
-  return {
-    url: file.publicUrl(),
-    author: photo.user?.name ?? "Unsplash",
-    link: photo.links?.html ?? "#",
-    alt: photo.alt_description ?? query,
-  };
-}
-
-// ------------------------------------------------------------------
-// 5. Genera i 7 punteggi interesse (JSON strutturato da Gemini)
+// 3. Genera i 7 punteggi interesse (JSON strutturato da Gemini)
 // ------------------------------------------------------------------
 async function generateScores(title: string, dest: string, vibe: string) {
   const prompt = `Sei un esperto di viaggi. Analizza il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}).
@@ -153,7 +98,7 @@ Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 7 chiavi esat
 }
 
 // ------------------------------------------------------------------
-// 6. Genera meta title/description SEO
+// 4. Genera meta title/description SEO
 // ------------------------------------------------------------------
 async function generateSeoMeta(title: string, dest: string) {
   const prompt = `Scrivi per la pagina "${title}" (viaggio a ${dest}):
@@ -170,7 +115,7 @@ Rispondi in JSON puro: {"metaTitle":"...","metaDescription":"..."}`;
 }
 
 // ------------------------------------------------------------------
-// 7. MAIN
+// 5. MAIN
 // ------------------------------------------------------------------
 export async function generateArticle() {
   const dest = await pickNextDestination();

@@ -18,6 +18,12 @@ export default function Navbar() {
       <nav className="flex items-center gap-2 text-sm">
         {loading ? null : user ? (
           <>
+            <Link
+              href="/viaggi"
+              className="flex min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700"
+            >
+              Viaggi
+            </Link>
             <span className="hidden text-gray-600 sm:inline">
               {profile?.displayName ?? user.email}
             </span>
