@@ -16,6 +16,12 @@ export default function Navbar() {
         WikiTravels
       </Link>
       <nav className="flex items-center gap-1 text-sm">
+        <Link
+          href="/enciclopedia"
+          className="hidden min-h-[44px] items-center px-3 text-gray-600 hover:text-brand-700 sm:flex"
+        >
+          Enciclopedia
+        </Link>
         {loading ? null : user ? (
           <>
             <Link

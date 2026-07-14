@@ -60,9 +60,13 @@ service cloud.firestore {
       }
     }
 
-    // Le altre collezioni (follows, chats, notifications, articles, ...)
-    // vengono aggiunte con le loro regole man mano che gli step successivi
-    // le creano.
+    match /articles/{articleId} {
+      // Generati e scritti solo dal cron server-side (Admin SDK, che
+      // bypassa le regole): dal client si può solo leggere il pubblicato.
+      allow read: if resource.data.status == 'published';
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
