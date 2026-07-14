@@ -85,7 +85,7 @@ export default function NotifichePage() {
                 <p className="flex-1 text-sm text-gray-700">
                   <strong>{n.fromDisplayName}</strong> ha iniziato a seguirti
                 </p>
-                <span className="shrink-0 text-xs text-gray-400">{timeAgo(n.createdAt)}</span>
+                <span className="shrink-0 text-xs text-gray-500">{timeAgo(n.createdAt)}</span>
               </Link>
             </li>
           ))}

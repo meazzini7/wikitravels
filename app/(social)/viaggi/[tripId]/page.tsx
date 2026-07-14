@@ -97,7 +97,7 @@ export default function TripDetailPage() {
           </li>
         ))}
       </ol>
-      {isOwner && <p className="mt-6 text-xs text-gray-400">Sei il proprietario di questo viaggio.</p>}
+      {isOwner && <p className="mt-6 text-xs text-gray-500">Sei il proprietario di questo viaggio.</p>}
     </main>
   );
 }

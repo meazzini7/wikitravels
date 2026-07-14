@@ -120,12 +120,12 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       />
 
       {/* Slot pubblicitario predisposto (Google AdSense) */}
-      <div className="my-8 flex min-h-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-400">
+      <div className="my-8 flex min-h-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500">
         Spazio pubblicitario
       </div>
 
       {article.coverImageCredit && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Foto di{" "}
           <a
             href={article.coverImageCredit.link}

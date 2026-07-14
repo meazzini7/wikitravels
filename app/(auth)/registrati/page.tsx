@@ -130,7 +130,7 @@ export default function RegistratiPage() {
           Registrati
         </button>
       </form>
-      <div className="my-4 flex items-center gap-2 text-xs text-gray-400">
+      <div className="my-4 flex items-center gap-2 text-xs text-gray-500">
         <div className="h-px flex-1 bg-gray-200" />
         oppure
         <div className="h-px flex-1 bg-gray-200" />
