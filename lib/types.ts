@@ -69,3 +69,19 @@ export interface ChatMessage {
   text: string;
   createdAt: number;
 }
+
+export interface Article {
+  title: string;
+  slug: string;
+  destination: string;
+  vibe: string;
+  contentHtml: string;
+  coverImageUrl: string | null;
+  coverImageCredit: { author: string; link: string } | null;
+  scores: InterestScores;
+  tier: 1 | 2 | 3;
+  seo: { metaTitle: string; metaDescription: string };
+  status: "published" | "draft";
+  views: number;
+  createdAt: unknown;
+}

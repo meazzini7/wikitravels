@@ -18,3 +18,9 @@
     font-size: 16px;
   }
 }
+
+/* Box "segreto del local" negli articoli enciclopedia generati (vedi
+   scripts/generate-article.ts, struttura HTML con div.secret-spot). */
+.secret-spot {
+  @apply mt-6 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900;
+}
