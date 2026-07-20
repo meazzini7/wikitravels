@@ -31,6 +31,7 @@ export default function PublicProfilePage() {
             collection(db, "trips"),
             where("authorId", "==", uid),
             where("status", "==", "published"),
+            where("visibility", "==", "public"),
             orderBy("createdAt", "desc")
           )
         );

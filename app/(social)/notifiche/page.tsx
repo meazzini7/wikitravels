@@ -74,16 +74,25 @@ export default function NotifichePage() {
           {items.map((n) => (
             <li key={n.id}>
               <Link
-                href={`/utenti/${n.fromUid}`}
+                href={n.type === "trip" && n.tripId ? `/viaggi/${n.tripId}` : `/utenti/${n.fromUid}`}
                 className={`flex items-center gap-3 rounded-lg border px-3 py-3 ${
                   n.read ? "border-gray-100" : "border-brand-200 bg-brand-50"
                 }`}
               >
                 <span className="text-lg" aria-hidden>
-                  👤
+                  {n.type === "trip" ? "🧳" : "👤"}
                 </span>
                 <p className="flex-1 text-sm text-gray-700">
-                  <strong>{n.fromDisplayName}</strong> ha iniziato a seguirti
+                  {n.type === "trip" ? (
+                    <>
+                      <strong>{n.fromDisplayName}</strong> ha pubblicato un nuovo viaggio
+                      {n.tripTitle ? `: ${n.tripTitle}` : ""}
+                    </>
+                  ) : (
+                    <>
+                      <strong>{n.fromDisplayName}</strong> ha iniziato a seguirti
+                    </>
+                  )}
                 </p>
                 <span className="shrink-0 text-xs text-gray-500">{timeAgo(n.createdAt)}</span>
               </Link>

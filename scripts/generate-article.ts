@@ -76,12 +76,12 @@ async function pickNextDestination(): Promise<Dest> {
 }
 
 // ------------------------------------------------------------------
-// 3. Genera i 7 punteggi interesse (JSON strutturato da Gemini)
+// 3. Genera i 6 punteggi interesse (JSON strutturato da Gemini)
 // ------------------------------------------------------------------
 async function generateScores(title: string, dest: string, vibe: string) {
   const prompt = `Sei un esperto di viaggi. Analizza il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}).
-Assegna un punteggio da 1 a 10 per: ${INTEREST_KEYS.join(", ")}.
-Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 7 chiavi esatte.`;
+Assegna un punteggio da 0 a 10 per: ${INTEREST_KEYS.join(", ")}.
+Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 6 chiavi esatte.`;
 
   const raw = await askGemini(prompt);
   const clean = raw.replace(/^```json\s*|```\s*$/gim, "").trim();
@@ -89,7 +89,7 @@ Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 7 chiavi esat
     const parsed = JSON.parse(clean);
     const scores: Record<string, number> = {};
     for (const k of INTEREST_KEYS) {
-      scores[k] = Math.min(10, Math.max(1, Number(parsed[k] ?? 5)));
+      scores[k] = Math.min(10, Math.max(0, Number(parsed[k] ?? 5)));
     }
     return scores;
   } catch {

@@ -23,6 +23,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     onboardingCompleted: false,
     createdAt: Date.now(),
     stats: { tripsCount: 0, totalDistanceKm: 0, followersCount: 0, followingCount: 0 },
+    homeLocation: null,
   };
   await setDoc(ref, profile);
   return profile;

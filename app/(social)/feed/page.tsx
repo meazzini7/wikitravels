@@ -20,6 +20,7 @@ export default function FeedPage() {
     const q = query(
       collection(getFirebaseDb(), "trips"),
       where("status", "==", "published"),
+      where("visibility", "==", "public"),
       orderBy("createdAt", "desc"),
       limit(30)
     );

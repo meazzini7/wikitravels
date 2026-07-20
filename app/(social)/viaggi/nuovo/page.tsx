@@ -8,9 +8,19 @@ import { doc, increment, writeBatch } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { generateId } from "@/lib/id";
-import { distributeDates, formatISODate, totalTripDistanceKm } from "@/lib/travel-utils";
+import {
+  distributeDates,
+  estimateTravelHours,
+  formatISODate,
+  haversineDistanceKm,
+  totalTripDistanceKm,
+} from "@/lib/travel-utils";
 import { defaultInterestScores } from "@/lib/interests";
+import { TRIP_TYPES, TRIP_TYPE_LABELS, type TripType } from "@/lib/trip-types";
+import { notifyFollowersOfNewTrip } from "@/lib/social";
+import type { GeocodeResult } from "@/lib/geocoding";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import PlaceSearch from "@/components/PlaceSearch";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), {
   ssr: false,
@@ -22,6 +32,7 @@ interface DraftStop {
   name: string;
   lat: number;
   lng: number;
+  countryCode: string;
 }
 
 const STEP_LABELS = ["Dettagli", "Tappe", "Copertina", "Riepilogo"];
@@ -36,10 +47,11 @@ export default function NuovoViaggioPage() {
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [tripType, setTripType] = useState<TripType>("solo");
+  const [costEuro, setCostEuro] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
 
   const [stops, setStops] = useState<DraftStop[]>([]);
-  const [pendingName, setPendingName] = useState("");
-  const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [cover, setCover] = useState<{ url: string; author: string; link: string } | null>(null);
   const [coverLoading, setCoverLoading] = useState(false);
@@ -57,14 +69,24 @@ export default function NuovoViaggioPage() {
     return distributeDates(new Date(startDate), new Date(endDate), stops.length);
   }, [startDate, endDate, stops.length]);
 
-  function addStop() {
-    if (!pendingName.trim() || !pendingCoords) return;
+  const homeLocation = profile?.homeLocation ?? null;
+  const homeDistanceKm = useMemo(() => {
+    if (!homeLocation || stops.length === 0) return null;
+    return haversineDistanceKm(homeLocation, stops[0]);
+  }, [homeLocation, stops]);
+  const homeTravelHours = homeDistanceKm !== null ? estimateTravelHours(homeDistanceKm) : null;
+
+  function addStopFromPlace(place: GeocodeResult) {
     setStops((prev) => [
       ...prev,
-      { id: generateId(), name: pendingName.trim(), lat: pendingCoords.lat, lng: pendingCoords.lng },
+      {
+        id: generateId(),
+        name: place.label.split(",").slice(0, 2).join(",").trim() || place.label,
+        lat: place.lat,
+        lng: place.lng,
+        countryCode: place.countryCode,
+      },
     ]);
-    setPendingName("");
-    setPendingCoords(null);
   }
 
   function removeStop(id: string) {
@@ -110,6 +132,7 @@ export default function NuovoViaggioPage() {
       const db = getFirebaseDb();
       const batch = writeBatch(db);
       const tripRef = doc(db, "trips", tripId);
+      const countryCodes = Array.from(new Set(stops.map((s) => s.countryCode).filter(Boolean)));
       batch.set(tripRef, {
         id: tripId,
         authorId: user.uid,
@@ -122,6 +145,12 @@ export default function NuovoViaggioPage() {
         endDate,
         coverImageUrl: cover?.url ?? null,
         totalDistanceKm: totalDistance,
+        visibility,
+        tripType,
+        costEuro: Number(costEuro) || 0,
+        countryCodes,
+        homeDistanceKm,
+        homeTravelHours,
         status: "published",
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -130,9 +159,11 @@ export default function NuovoViaggioPage() {
         const range = dateRanges[i];
         batch.set(doc(db, "trips", tripId, "stops", stop.id), {
           id: stop.id,
+          authorId: user.uid,
           name: stop.name,
           lat: stop.lat,
           lng: stop.lng,
+          countryCode: stop.countryCode,
           order: i,
           startDate: range ? formatISODate(range.start) : startDate,
           endDate: range ? formatISODate(range.end) : endDate,
@@ -143,6 +174,16 @@ export default function NuovoViaggioPage() {
         "stats.totalDistanceKm": increment(totalDistance),
       });
       await batch.commit();
+
+      if (visibility === "public") {
+        notifyFollowersOfNewTrip(user.uid, {
+          tripId,
+          tripTitle: title.trim(),
+          authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
+          authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
+        }).catch((err) => console.error("Impossibile notificare i follower:", err));
+      }
+
       router.push(`/viaggi/${tripId}`);
     } catch {
       setError("Non sono riuscito a pubblicare il viaggio. Riprova.");
@@ -223,6 +264,71 @@ export default function NuovoViaggioPage() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tripType" className="mb-1 block text-sm font-medium text-gray-700">
+                Tipo di viaggio
+              </label>
+              <select
+                id="tripType"
+                value={tripType}
+                onChange={(e) => setTripType(e.target.value as TripType)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2"
+              >
+                {TRIP_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {TRIP_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="cost" className="mb-1 block text-sm font-medium text-gray-700">
+                Costo indicativo (€)
+              </label>
+              <input
+                id="cost"
+                type="number"
+                min={0}
+                value={costEuro}
+                onChange={(e) => setCostEuro(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div>
+            <span className="mb-1 block text-sm font-medium text-gray-700">Visibilità</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibility("public")}
+                className={`min-h-[44px] flex-1 rounded-md border px-4 text-sm font-medium ${
+                  visibility === "public"
+                    ? "border-brand-600 bg-brand-50 text-brand-700"
+                    : "border-gray-300 text-gray-600"
+                }`}
+              >
+                🌍 Pubblico
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility("private")}
+                className={`min-h-[44px] flex-1 rounded-md border px-4 text-sm font-medium ${
+                  visibility === "private"
+                    ? "border-brand-600 bg-brand-50 text-brand-700"
+                    : "border-gray-300 text-gray-600"
+                }`}
+              >
+                🔒 Privato
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {visibility === "public"
+                ? "Anteprima visibile a tutti, tappe e mappa solo a chi ha effettuato l'accesso."
+                : "Visibile solo a te."}
+            </p>
+          </div>
           <button
             onClick={() => setStep(2)}
             disabled={!canGoStep2}
@@ -235,28 +341,9 @@ export default function NuovoViaggioPage() {
 
       {step === 2 && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">Tocca la mappa per posizionare una tappa, poi dalle un nome.</p>
-          <TripMap
-            stops={stops}
-            onMapClick={(lat, lng) => setPendingCoords({ lat, lng })}
-            className="h-72 w-full rounded-lg"
-          />
-          <div className="flex gap-2">
-            <input
-              value={pendingName}
-              onChange={(e) => setPendingName(e.target.value)}
-              placeholder={pendingCoords ? "Nome della tappa" : "Tocca la mappa prima"}
-              disabled={!pendingCoords}
-              className="flex-1 rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-50"
-            />
-            <button
-              onClick={addStop}
-              disabled={!pendingCoords || !pendingName.trim()}
-              className="min-h-[44px] rounded-md bg-brand-600 px-4 font-medium text-white disabled:opacity-40"
-            >
-              Aggiungi
-            </button>
-          </div>
+          <p className="text-sm text-gray-600">Cerca una città o un luogo per aggiungerlo come tappa.</p>
+          <PlaceSearch onSelect={addStopFromPlace} placeholder="Es. Firenze, Italia" />
+          <TripMap stops={stops} className="h-72 w-full rounded-lg" />
 
           {stops.length > 0 && (
             <ol className="flex flex-col gap-2">
@@ -373,6 +460,15 @@ export default function NuovoViaggioPage() {
           <p className="text-sm text-gray-600">
             {startDate} → {endDate} · {totalDistance.toFixed(0)} km · {stops.length} tappe
           </p>
+          <p className="text-sm text-gray-600">
+            {TRIP_TYPE_LABELS[tripType]} · {Number(costEuro) || 0}€ ·{" "}
+            {visibility === "public" ? "🌍 Pubblico" : "🔒 Privato"}
+          </p>
+          {homeDistanceKm !== null && homeTravelHours !== null && (
+            <p className="text-sm text-gray-600">
+              Da casa ({homeLocation?.name}): circa {homeDistanceKm.toFixed(0)} km, {homeTravelHours.toFixed(1)} ore
+            </p>
+          )}
           <ol className="flex flex-col gap-2">
             {stops.map((stop, i) => (
               <li key={stop.id} className="text-sm text-gray-700">
