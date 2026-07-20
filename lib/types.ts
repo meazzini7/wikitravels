@@ -1,10 +1,18 @@
 import type { InterestScores } from "./interests";
+import type { TripType } from "./trip-types";
 
 export interface UserStats {
   tripsCount: number;
   totalDistanceKm: number;
   followersCount: number;
   followingCount: number;
+}
+
+export interface HomeLocation {
+  name: string;
+  lat: number;
+  lng: number;
+  countryCode: string;
 }
 
 export interface UserProfile {
@@ -17,13 +25,16 @@ export interface UserProfile {
   onboardingCompleted: boolean;
   createdAt: number;
   stats: UserStats;
+  homeLocation: HomeLocation | null;
 }
 
 export interface TripStop {
   id: string;
+  authorId: string;
   name: string;
   lat: number;
   lng: number;
+  countryCode: string;
   order: number;
   startDate: string;
   endDate: string;
@@ -41,6 +52,12 @@ export interface Trip {
   endDate: string;
   coverImageUrl: string | null;
   totalDistanceKm: number;
+  visibility: "public" | "private";
+  tripType: TripType;
+  costEuro: number;
+  countryCodes: string[];
+  homeDistanceKm: number | null;
+  homeTravelHours: number | null;
   status: "draft" | "published";
   createdAt: number;
   updatedAt: number;
@@ -48,10 +65,12 @@ export interface Trip {
 
 export interface Notification {
   id: string;
-  type: "follow";
+  type: "follow" | "trip";
   fromUid: string;
   fromDisplayName: string;
   fromPhotoURL: string | null;
+  tripId: string | null;
+  tripTitle: string | null;
   createdAt: number;
   read: boolean;
 }

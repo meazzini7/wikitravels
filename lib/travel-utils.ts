@@ -57,11 +57,20 @@ export function formatISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-// Percentuale di affinità (0-100) tra due vettori di interesse (scala 1-10
-// su ognuna delle 7 chiavi): usata nel feed pubblico per suggerire viaggi
+// Stima indicativa (non un vero motore di instradamento): sotto i 700km
+// ipotizza spostamento su gomma a 90km/h medi, oltre ipotizza un volo a
+// 750km/h con 2 ore fisse di margine aeroportuale/trasferimenti.
+export function estimateTravelHours(distanceKm: number): number {
+  if (distanceKm <= 0) return 0;
+  if (distanceKm <= 700) return distanceKm / 90;
+  return 2 + distanceKm / 750;
+}
+
+// Percentuale di affinità (0-100) tra due vettori di interesse (scala 0-10
+// su ognuna delle 6 chiavi): usata nel feed pubblico per suggerire viaggi
 // in base a quanto gli interessi dell'autore assomigliano ai propri.
 export function computeMatchScore(a: InterestScores, b: InterestScores): number {
-  const diffs = INTEREST_KEYS.map((key) => Math.abs(a[key] - b[key]) / 9);
+  const diffs = INTEREST_KEYS.map((key) => Math.abs(a[key] - b[key]) / 10);
   const avgDiff = diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
   return Math.round((1 - avgDiff) * 100);
 }
