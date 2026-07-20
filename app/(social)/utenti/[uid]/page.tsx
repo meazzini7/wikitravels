@@ -10,6 +10,8 @@ import { useAuth } from "@/lib/auth-context";
 import { unlockedBadges } from "@/lib/badges";
 import FollowButton from "@/components/FollowButton";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import StatTile from "@/components/ui/StatTile";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Trip, UserProfile } from "@/lib/types";
 
 export default function PublicProfilePage() {
@@ -44,19 +46,28 @@ export default function PublicProfilePage() {
   }, [params.uid]);
 
   if (loadingProfile) {
-    return <main className="mx-auto max-w-2xl px-4 py-12 text-gray-500">Caricamento...</main>;
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <div className="h-40 w-full animate-pulse rounded-3xl bg-gray-100" />
+      </main>
+    );
   }
   if (!profile) {
-    return <main className="mx-auto max-w-2xl px-4 py-12 text-gray-500">Utente non trovato.</main>;
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <FlamingoMascot className="mx-auto mb-3 h-14 w-14 opacity-60" />
+        <p className="text-gray-500">Utente non trovato.</p>
+      </main>
+    );
   }
 
   const badges = unlockedBadges(profile.stats);
   const isSelf = user?.uid === profile.uid;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-4">
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-brand-50">
+    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <div className="card-surface mb-6 flex items-center gap-4 p-4 sm:p-5">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-brand-50 ring-4 ring-brand-100">
           {profile.photoURL ? (
             <Image src={profile.photoURL} alt={profile.displayName} fill className="object-cover" sizes="80px" />
           ) : (
@@ -66,13 +77,15 @@ export default function PublicProfilePage() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold text-gray-900">{profile.displayName}</h1>
+          <h1 className="truncate font-heading text-xl font-bold text-gray-900">{profile.displayName}</h1>
           {profile.bio && <p className="text-sm text-gray-600">{profile.bio}</p>}
-          <p className="mt-1 text-xs text-gray-500">
-            {profile.stats.tripsCount} viaggi · {profile.stats.followersCount} follower ·{" "}
-            {profile.stats.followingCount} seguiti
-          </p>
         </div>
+      </div>
+
+      <div className="mb-6 grid grid-cols-3 gap-2">
+        <StatTile icon="🧳" value={profile.stats.tripsCount} label="Viaggi" />
+        <StatTile icon="⭐" value={profile.stats.followersCount} label="Follower" tone="sun" />
+        <StatTile icon="🤝" value={profile.stats.followingCount} label="Seguiti" tone="lagoon" />
       </div>
 
       {!isSelf && (
@@ -80,22 +93,22 @@ export default function PublicProfilePage() {
           <FollowButton targetUid={profile.uid} />
           <Link
             href={`/chat/${profile.uid}`}
-            className="flex min-h-[44px] items-center rounded-md border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="tap-scale flex min-h-[44px] items-center rounded-full border-2 border-gray-200 px-4 text-sm font-bold text-gray-700 hover:bg-gray-50"
           >
-            Scrivi un messaggio
+            💬 Scrivi un messaggio
           </Link>
         </div>
       )}
 
       {badges.length > 0 && (
         <div className="mb-6">
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Badge</h2>
+          <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🏅 Badge</h2>
           <ul className="flex flex-wrap gap-2">
             {badges.map((b) => (
               <li
                 key={b.id}
                 title={b.description}
-                className="flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-sm text-brand-700"
+                className="flex items-center gap-1.5 rounded-full bg-sun-50 px-3 py-1.5 text-sm font-bold text-sun-700"
               >
                 <span aria-hidden>{b.icon}</span>
                 {b.label}
@@ -105,18 +118,15 @@ export default function PublicProfilePage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Viaggi pubblicati</h2>
+      <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">✈️ Viaggi pubblicati</h2>
       {trips.length === 0 ? (
-        <p className="text-gray-500">Nessun viaggio pubblicato ancora.</p>
+        <EmptyState title="Nessun viaggio pubblicato ancora" />
       ) : (
         <ul className="flex flex-col gap-3">
           {trips.map((trip) => (
             <li key={trip.id}>
-              <Link
-                href={`/viaggi/${trip.id}`}
-                className="block rounded-lg border border-gray-100 p-3 hover:border-brand-200"
-              >
-                <p className="font-medium text-gray-900">{trip.title}</p>
+              <Link href={`/viaggi/${trip.id}`} className="tap-scale card-surface block p-3 hover:border-brand-200">
+                <p className="font-bold text-gray-900">{trip.title}</p>
                 <p className="text-sm text-gray-500">
                   {trip.startDate} → {trip.endDate} · {trip.totalDistanceKm.toFixed(0)} km
                 </p>

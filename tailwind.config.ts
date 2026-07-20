@@ -8,6 +8,29 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      typography: ({ theme }: { theme: (path: string) => string }) => ({
+        brand: {
+          css: {
+            "--tw-prose-headings": theme("colors.brand[700]"),
+            "--tw-prose-links": theme("colors.brand[600]"),
+            "--tw-prose-bold": theme("colors.gray[900]"),
+            "--tw-prose-bullets": theme("colors.brand[400]"),
+            "--tw-prose-quotes": theme("colors.brand[700]"),
+            "--tw-prose-quote-borders": theme("colors.brand[200]"),
+          },
+        },
+      }),
+      fontFamily: {
+        heading: ["var(--font-heading)", "system-ui", "sans-serif"],
+        sans: ["var(--font-body)", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        soft: "0 2px 10px -2px rgb(0 0 0 / 0.08), 0 8px 24px -8px rgb(221 33 102 / 0.12)",
+        pop: "0 4px 14px -2px rgb(221 33 102 / 0.35)",
+      },
+      borderRadius: {
+        "4xl": "2rem",
+      },
       colors: {
         // Rosa fenicottero: colore guida del brand WikiTravels.
         brand: {
@@ -34,6 +57,19 @@ const config: Config = {
           700: "#1e6666",
           800: "#1d5252",
           900: "#1a4546",
+        },
+        // Giallo tramonto: terzo accento per badge/gamification e highlight caldi.
+        sun: {
+          50: "#fffbeb",
+          100: "#fff3c4",
+          200: "#ffe58a",
+          300: "#ffd24d",
+          400: "#ffbe1f",
+          500: "#f7a70a",
+          600: "#d98505",
+          700: "#b3650a",
+          800: "#8f4f10",
+          900: "#763f11",
         },
       },
     },

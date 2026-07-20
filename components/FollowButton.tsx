@@ -45,11 +45,11 @@ export default function FollowButton({ targetUid }: { targetUid: string }) {
     <button
       onClick={toggle}
       disabled={busy || following === null}
-      className={`min-h-[44px] rounded-md px-4 text-sm font-medium disabled:opacity-50 ${
-        following ? "border border-gray-300 text-gray-700" : "bg-brand-600 text-white"
+      className={`tap-scale min-h-[44px] rounded-full px-5 text-sm font-bold disabled:opacity-50 ${
+        following ? "border-2 border-gray-200 text-gray-700" : "bg-brand-600 text-white shadow-pop"
       }`}
     >
-      {following ? "Segui già" : "Segui"}
+      {following ? "✓ Segui già" : "+ Segui"}
     </button>
   );
 }
