@@ -1,8 +1,23 @@
 import type { Metadata, Viewport } from "next";
+import { Baloo_2, Nunito } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
+
+const heading = Baloo_2({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-heading",
+  display: "swap",
+});
+
+const body = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
+  variable: "--font-body",
+  display: "swap",
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -31,11 +46,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="it">
+    <html lang="it" className={`${heading.variable} ${body.variable}`}>
       <body>
         <AuthProvider>
           <Navbar />
-          <div className="pb-16 sm:pb-0">{children}</div>
+          <div className="pb-20 sm:pb-0">{children}</div>
           <BottomNav />
         </AuthProvider>
       </body>

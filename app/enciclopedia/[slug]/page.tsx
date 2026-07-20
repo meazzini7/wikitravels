@@ -92,14 +92,14 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {article.coverImageUrl && (
-        <div className="relative mb-6 h-64 w-full overflow-hidden rounded-lg">
+        <div className="relative mb-6 h-64 w-full overflow-hidden rounded-3xl shadow-soft sm:h-80">
           <Image
             src={article.coverImageUrl}
             alt={article.title}
@@ -108,19 +108,22 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             sizes="768px"
             priority
           />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
+          <span className="absolute bottom-3 left-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-brand-700">
+            📍 {article.destination}
+          </span>
         </div>
       )}
-      <h1 className="mb-2 text-3xl font-bold text-gray-900">{article.title}</h1>
-      <p className="mb-6 text-sm text-gray-500">{article.destination}</p>
+      <h1 className="mb-6 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.title}</h1>
 
       {/* eslint-disable-next-line react/no-danger */}
       <div
-        className="prose prose-brand max-w-none"
+        className="card-surface prose prose-brand max-w-none p-5 sm:p-8"
         dangerouslySetInnerHTML={{ __html: article.contentHtml }}
       />
 
       {/* Slot pubblicitario predisposto (Google AdSense) */}
-      <div className="my-8 flex min-h-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500">
+      <div className="my-8 flex min-h-[100px] items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-xs text-gray-400">
         Spazio pubblicitario
       </div>
 

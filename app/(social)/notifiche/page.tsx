@@ -5,6 +5,8 @@ import Link from "next/link";
 import { collection, doc, getDocs, limit, orderBy, query, updateDoc } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
+import PageHero from "@/components/ui/PageHero";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Notification } from "@/lib/types";
 
 function timeAgo(ts: number): string {
@@ -63,23 +65,23 @@ export default function NotifichePage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Notifiche</h1>
+    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <PageHero eyebrow="Aggiornamenti" title="Notifiche 🔔" className="mb-6" />
       {loadingItems ? (
-        <p className="text-gray-500">Caricamento...</p>
+        <div className="h-24 animate-pulse rounded-3xl bg-gray-100" />
       ) : items.length === 0 ? (
-        <p className="text-gray-500">Nessuna notifica per ora.</p>
+        <EmptyState title="Nessuna notifica per ora" description="Quando qualcuno ti segue o pubblica un viaggio, lo vedrai qui." />
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((n) => (
             <li key={n.id}>
               <Link
                 href={n.type === "trip" && n.tripId ? `/viaggi/${n.tripId}` : `/utenti/${n.fromUid}`}
-                className={`flex items-center gap-3 rounded-lg border px-3 py-3 ${
-                  n.read ? "border-gray-100" : "border-brand-200 bg-brand-50"
+                className={`tap-scale flex items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
+                  n.read ? "border-transparent bg-white/70" : "border-brand-200 bg-brand-50"
                 }`}
               >
-                <span className="text-lg" aria-hidden>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm" aria-hidden>
                   {n.type === "trip" ? "🧳" : "👤"}
                 </span>
                 <p className="flex-1 text-sm text-gray-700">
@@ -94,7 +96,7 @@ export default function NotifichePage() {
                     </>
                   )}
                 </p>
-                <span className="shrink-0 text-xs text-gray-500">{timeAgo(n.createdAt)}</span>
+                <span className="shrink-0 text-xs font-semibold text-gray-400">{timeAgo(n.createdAt)}</span>
               </Link>
             </li>
           ))}

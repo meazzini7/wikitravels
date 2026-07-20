@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
+import FlamingoMascot from "@/components/FlamingoMascot";
+import PageHero from "@/components/ui/PageHero";
+import EmptyState from "@/components/ui/EmptyState";
 import type { ChatSummary, UserProfile } from "@/lib/types";
 
 interface ConversationRow {
@@ -59,7 +63,7 @@ export default function ChatListPage() {
       <main className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-gray-600">
           Devi{" "}
-          <Link href="/login" className="font-medium text-brand-700">
+          <Link href="/login" className="font-bold text-brand-700">
             accedere
           </Link>{" "}
           per vedere i messaggi.
@@ -69,30 +73,38 @@ export default function ChatListPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Messaggi</h1>
+    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <PageHero eyebrow="Connettiti" title="Messaggi 💬" className="mb-6" />
       {loadingChats ? (
-        <p className="text-gray-500">Caricamento...</p>
+        <div className="h-24 animate-pulse rounded-3xl bg-gray-100" />
       ) : rows.length === 0 ? (
-        <p className="text-gray-500">
-          Nessuna conversazione. Vai al{" "}
-          <Link href="/feed" className="text-brand-700 hover:underline">
-            feed
-          </Link>{" "}
-          per trovare altri viaggiatori.
-        </p>
+        <EmptyState title="Nessuna conversazione" description="Trova altri viaggiatori nel feed e inizia a chattare.">
+          <Link
+            href="/feed"
+            className="tap-scale mt-2 flex min-h-[44px] items-center rounded-full bg-brand-600 px-5 font-bold text-white shadow-pop"
+          >
+            🧭 Vai al feed
+          </Link>
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map(({ chat, otherUser }) => (
             <li key={chat.id}>
               <Link
                 href={`/chat/${otherUser?.uid ?? chat.participants[0]}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 px-3 py-3 hover:border-brand-200"
+                className="tap-scale card-surface flex items-center gap-3 px-3 py-3 hover:border-brand-200"
               >
+                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-brand-50">
+                  {otherUser?.photoURL ? (
+                    <Image src={otherUser.photoURL} alt={otherUser.displayName} fill className="object-cover" sizes="44px" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-brand-300">
+                      <FlamingoMascot className="h-6 w-6" />
+                    </div>
+                  )}
+                </div>
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-gray-900">
-                    {otherUser?.displayName ?? "Viaggiatore"}
-                  </p>
+                  <p className="truncate font-bold text-gray-900">{otherUser?.displayName ?? "Viaggiatore"}</p>
                   <p className="truncate text-sm text-gray-500">{chat.lastMessage}</p>
                 </div>
               </Link>

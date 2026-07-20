@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { ensureUserProfile } from "@/lib/ensure-user-profile";
 import { mapAuthError } from "@/lib/auth-errors";
+import FlamingoMascot from "@/components/FlamingoMascot";
 
 interface FormValues {
   displayName: string;
@@ -55,18 +56,36 @@ export default function RegistratiPage() {
   };
 
   return (
-    <div className="w-full max-w-sm">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Crea il tuo account</h1>
+    <div className="card-surface w-full max-w-sm p-6 sm:p-8">
+      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+        <FlamingoMascot className="h-14 w-14" />
+        <h1 className="font-heading text-2xl font-bold text-gray-900">Unisciti a WikiTravels</h1>
+        <p className="text-sm text-gray-500">Un account, un mondo di viaggi da costruire e condividere.</p>
+      </div>
+
+      <button
+        onClick={onGoogleSignUp}
+        className="tap-scale flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-700 hover:bg-gray-50"
+      >
+        🔵 Continua con Google
+      </button>
+
+      <div className="my-5 flex items-center gap-2 text-xs font-semibold text-gray-400">
+        <div className="h-px flex-1 bg-gray-200" />
+        oppure con email
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <div>
-          <label htmlFor="displayName" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="displayName" className="mb-1 block text-sm font-bold text-gray-700">
             Nome
           </label>
           <input
             id="displayName"
             type="text"
             autoComplete="name"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
             {...register("displayName", { required: "Inserisci il tuo nome" })}
           />
           {errors.displayName && (
@@ -74,27 +93,27 @@ export default function RegistratiPage() {
           )}
         </div>
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="mb-1 block text-sm font-bold text-gray-700">
             Email
           </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
             {...register("email", { required: "Inserisci la tua email" })}
           />
           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
         </div>
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="mb-1 block text-sm font-bold text-gray-700">
             Password
           </label>
           <input
             id="password"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
             {...register("password", {
               required: "Inserisci una password",
               minLength: { value: 6, message: "Almeno 6 caratteri" },
@@ -105,14 +124,14 @@ export default function RegistratiPage() {
           )}
         </div>
         <div>
-          <label htmlFor="passwordConfirm" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="passwordConfirm" className="mb-1 block text-sm font-bold text-gray-700">
             Conferma password
           </label>
           <input
             id="passwordConfirm"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
             {...register("passwordConfirm", {
               validate: (value) => value === watch("password") || "Le password non coincidono",
             })}
@@ -125,25 +144,14 @@ export default function RegistratiPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="min-h-[44px] rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          className="tap-scale min-h-[48px] rounded-2xl bg-brand-600 px-4 py-2 font-heading font-bold text-white shadow-pop hover:bg-brand-700 disabled:opacity-60"
         >
-          Registrati
+          Crea account
         </button>
       </form>
-      <div className="my-4 flex items-center gap-2 text-xs text-gray-500">
-        <div className="h-px flex-1 bg-gray-200" />
-        oppure
-        <div className="h-px flex-1 bg-gray-200" />
-      </div>
-      <button
-        onClick={onGoogleSignUp}
-        className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
-      >
-        Continua con Google
-      </button>
       <p className="mt-6 text-center text-sm text-gray-600">
         Hai già un account?{" "}
-        <Link href="/login" className="font-medium text-brand-700">
+        <Link href="/login" className="font-bold text-brand-700">
           Accedi
         </Link>
       </p>

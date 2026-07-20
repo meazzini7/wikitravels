@@ -21,10 +21,12 @@ import { notifyFollowersOfNewTrip } from "@/lib/social";
 import type { GeocodeResult } from "@/lib/geocoding";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import PlaceSearch from "@/components/PlaceSearch";
+import ProgressStepper from "@/components/ui/ProgressStepper";
+import ChipToggle from "@/components/ui/ChipToggle";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), {
   ssr: false,
-  loading: () => <div className="h-72 w-full animate-pulse rounded-lg bg-gray-100" />,
+  loading: () => <div className="h-72 w-full animate-pulse rounded-2xl bg-gray-100" />,
 });
 
 interface DraftStop {
@@ -35,7 +37,30 @@ interface DraftStop {
   countryCode: string;
 }
 
-const STEP_LABELS = ["Dettagli", "Tappe", "Copertina", "Riepilogo"];
+const STEPS = [
+  { label: "Dettagli", icon: "📝" },
+  { label: "Tappe", icon: "📍" },
+  { label: "Copertina", icon: "🖼️" },
+  { label: "Riepilogo", icon: "🎉" },
+];
+
+const TRIP_TYPE_ICONS: Record<TripType, string> = {
+  solo: "🧍",
+  coppia: "💑",
+  amici: "👯",
+  famiglia: "👨‍👩‍👧",
+  gruppo: "👥",
+};
+
+const QUICK_DESTINATIONS: { name: string; lat: number; lng: number; countryCode: string }[] = [
+  { name: "Roma, Italia", lat: 41.9028, lng: 12.4964, countryCode: "it" },
+  { name: "Parigi, Francia", lat: 48.8566, lng: 2.3522, countryCode: "fr" },
+  { name: "Barcellona, Spagna", lat: 41.3851, lng: 2.1734, countryCode: "es" },
+  { name: "Londra, Regno Unito", lat: 51.5072, lng: -0.1276, countryCode: "gb" },
+  { name: "New York, USA", lat: 40.7128, lng: -74.006, countryCode: "us" },
+  { name: "Bali, Indonesia", lat: -8.65, lng: 115.2167, countryCode: "id" },
+  { name: "Tokyo, Giappone", lat: 35.6762, lng: 139.6503, countryCode: "jp" },
+];
 
 export default function NuovoViaggioPage() {
   const router = useRouter();
@@ -76,17 +101,12 @@ export default function NuovoViaggioPage() {
   }, [homeLocation, stops]);
   const homeTravelHours = homeDistanceKm !== null ? estimateTravelHours(homeDistanceKm) : null;
 
+  function addStop(name: string, lat: number, lng: number, countryCode: string) {
+    setStops((prev) => [...prev, { id: generateId(), name, lat, lng, countryCode }]);
+  }
+
   function addStopFromPlace(place: GeocodeResult) {
-    setStops((prev) => [
-      ...prev,
-      {
-        id: generateId(),
-        name: place.label.split(",").slice(0, 2).join(",").trim() || place.label,
-        lat: place.lat,
-        lng: place.lng,
-        countryCode: place.countryCode,
-      },
-    ]);
+    addStop(place.label.split(",").slice(0, 2).join(",").trim() || place.label, place.lat, place.lng, place.countryCode);
   }
 
   function removeStop(id: string) {
@@ -197,37 +217,32 @@ export default function NuovoViaggioPage() {
   if (loading || !user) return null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Crea un nuovo viaggio</h1>
-      <ol className="mb-6 flex flex-wrap gap-2 text-xs text-gray-500">
-        {STEP_LABELS.map((label, i) => (
-          <li
-            key={label}
-            className={`rounded-full px-3 py-1 ${step === i + 1 ? "bg-brand-600 text-white" : "bg-gray-100"}`}
-          >
-            {i + 1}. {label}
-          </li>
-        ))}
-      </ol>
+    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <h1 className="mb-4 text-center font-heading text-2xl font-bold text-gray-900">
+        Crea un nuovo viaggio ✈️
+      </h1>
+      <ProgressStepper steps={STEPS} current={step} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="mb-4 rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">{error}</p>
+      )}
 
       {step === 1 && (
-        <div className="flex flex-col gap-4">
+        <div className="card-surface flex flex-col gap-5 p-4 sm:p-6">
           <div>
-            <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="title" className="mb-1 block text-sm font-bold text-gray-700">
               Titolo
             </label>
             <input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
               placeholder="Es. In giro per la Toscana"
             />
           </div>
           <div>
-            <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="description" className="mb-1 block text-sm font-bold text-gray-700">
               Descrizione
             </label>
             <textarea
@@ -235,12 +250,12 @@ export default function NuovoViaggioPage() {
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-gray-700">
+              <label htmlFor="startDate" className="mb-1 block text-sm font-bold text-gray-700">
                 Data inizio
               </label>
               <input
@@ -248,11 +263,11 @@ export default function NuovoViaggioPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
+                className="w-full rounded-2xl border-2 border-gray-200 px-3 py-2.5 focus:border-brand-400 focus:outline-none"
               />
             </div>
             <div>
-              <label htmlFor="endDate" className="mb-1 block text-sm font-medium text-gray-700">
+              <label htmlFor="endDate" className="mb-1 block text-sm font-bold text-gray-700">
                 Data fine
               </label>
               <input
@@ -260,53 +275,58 @@ export default function NuovoViaggioPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
+                className="w-full rounded-2xl border-2 border-gray-200 px-3 py-2.5 focus:border-brand-400 focus:outline-none"
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="tripType" className="mb-1 block text-sm font-medium text-gray-700">
-                Tipo di viaggio
-              </label>
-              <select
-                id="tripType"
-                value={tripType}
-                onChange={(e) => setTripType(e.target.value as TripType)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
-              >
-                {TRIP_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {TRIP_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="cost" className="mb-1 block text-sm font-medium text-gray-700">
-                Costo indicativo (€)
-              </label>
-              <input
-                id="cost"
-                type="number"
-                min={0}
-                value={costEuro}
-                onChange={(e) => setCostEuro(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="0"
-              />
-            </div>
-          </div>
+
           <div>
-            <span className="mb-1 block text-sm font-medium text-gray-700">Visibilità</span>
-            <div className="flex gap-2">
+            <span className="mb-2 block text-sm font-bold text-gray-700">Con chi parti?</span>
+            <ChipToggle
+              value={tripType}
+              onChange={setTripType}
+              columns={5}
+              options={TRIP_TYPES.map((t) => ({ value: t, label: TRIP_TYPE_LABELS[t].replace("In ", "").replace("Da ", ""), icon: TRIP_TYPE_ICONS[t] }))}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="cost" className="mb-2 block text-sm font-bold text-gray-700">
+              Costo indicativo
+            </label>
+            <div className="mb-2 flex flex-wrap gap-2">
+              {[300, 800, 1500, 3000].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setCostEuro(String(preset))}
+                  className="tap-scale rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  {preset}€
+                </button>
+              ))}
+            </div>
+            <input
+              id="cost"
+              type="number"
+              min={0}
+              value={costEuro}
+              onChange={(e) => setCostEuro(e.target.value)}
+              className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
+              placeholder="0€"
+            />
+          </div>
+
+          <div>
+            <span className="mb-2 block text-sm font-bold text-gray-700">Visibilità</span>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setVisibility("public")}
-                className={`min-h-[44px] flex-1 rounded-md border px-4 text-sm font-medium ${
+                className={`tap-scale flex min-h-[52px] flex-col items-center justify-center rounded-2xl border-2 text-sm font-bold ${
                   visibility === "public"
-                    ? "border-brand-600 bg-brand-50 text-brand-700"
-                    : "border-gray-300 text-gray-600"
+                    ? "border-brand-600 bg-brand-50 text-brand-700 shadow-pop"
+                    : "border-gray-200 text-gray-500"
                 }`}
               >
                 🌍 Pubblico
@@ -314,46 +334,59 @@ export default function NuovoViaggioPage() {
               <button
                 type="button"
                 onClick={() => setVisibility("private")}
-                className={`min-h-[44px] flex-1 rounded-md border px-4 text-sm font-medium ${
+                className={`tap-scale flex min-h-[52px] flex-col items-center justify-center rounded-2xl border-2 text-sm font-bold ${
                   visibility === "private"
-                    ? "border-brand-600 bg-brand-50 text-brand-700"
-                    : "border-gray-300 text-gray-600"
+                    ? "border-brand-600 bg-brand-50 text-brand-700 shadow-pop"
+                    : "border-gray-200 text-gray-500"
                 }`}
               >
                 🔒 Privato
               </button>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1.5 text-xs text-gray-500">
               {visibility === "public"
                 ? "Anteprima visibile a tutti, tappe e mappa solo a chi ha effettuato l'accesso."
                 : "Visibile solo a te."}
             </p>
           </div>
+
           <button
             onClick={() => setStep(2)}
             disabled={!canGoStep2}
-            className="min-h-[44px] rounded-md bg-brand-600 px-4 py-2 font-medium text-white disabled:opacity-40"
+            className="tap-scale min-h-[48px] rounded-2xl bg-brand-600 px-4 py-2 font-heading font-bold text-white shadow-pop disabled:opacity-40"
           >
-            Avanti
+            Avanti →
           </button>
         </div>
       )}
 
       {step === 2 && (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">Cerca una città o un luogo per aggiungerlo come tappa.</p>
-          <PlaceSearch onSelect={addStopFromPlace} placeholder="Es. Firenze, Italia" />
-          <TripMap stops={stops} className="h-72 w-full rounded-lg" />
+        <div className="card-surface flex flex-col gap-4 p-4 sm:p-6">
+          <p className="text-sm font-semibold text-gray-600">Tocca una meta popolare o cerca un luogo:</p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_DESTINATIONS.map((dest) => (
+              <button
+                key={dest.name}
+                type="button"
+                onClick={() => addStop(dest.name, dest.lat, dest.lng, dest.countryCode)}
+                className="tap-scale rounded-full bg-lagoon-50 px-3 py-1.5 text-xs font-bold text-lagoon-700 hover:bg-lagoon-100"
+              >
+                + {dest.name.split(",")[0]}
+              </button>
+            ))}
+          </div>
+          <PlaceSearch onSelect={addStopFromPlace} placeholder="Oppure cerca un altro luogo..." />
+          <TripMap stops={stops} className="h-64 w-full rounded-2xl" />
 
           {stops.length > 0 && (
             <ol className="flex flex-col gap-2">
               {stops.map((stop, i) => (
                 <li
                   key={stop.id}
-                  className="flex items-center justify-between rounded-md border border-gray-100 px-3 py-2"
+                  className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-gray-900">
+                    <p className="truncate font-bold text-gray-900">
                       {i + 1}. {stop.name}
                     </p>
                     {dateRanges[i] && (
@@ -367,7 +400,7 @@ export default function NuovoViaggioPage() {
                       onClick={() => moveStop(i, -1)}
                       disabled={i === 0}
                       aria-label="Sposta su"
-                      className="flex h-11 w-11 items-center justify-center text-gray-500 disabled:opacity-30"
+                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
                     >
                       ↑
                     </button>
@@ -375,14 +408,14 @@ export default function NuovoViaggioPage() {
                       onClick={() => moveStop(i, 1)}
                       disabled={i === stops.length - 1}
                       aria-label="Sposta giù"
-                      className="flex h-11 w-11 items-center justify-center text-gray-500 disabled:opacity-30"
+                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
                     >
                       ↓
                     </button>
                     <button
                       onClick={() => removeStop(stop.id)}
                       aria-label="Rimuovi tappa"
-                      className="flex h-11 w-11 items-center justify-center text-red-500"
+                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500"
                     >
                       ✕
                     </button>
@@ -401,27 +434,27 @@ export default function NuovoViaggioPage() {
           <div className="flex gap-3">
             <button
               onClick={() => setStep(1)}
-              className="min-h-[44px] flex-1 rounded-md border border-gray-300 px-4 font-medium text-gray-700"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-700"
             >
-              Indietro
+              ← Indietro
             </button>
             <button
               onClick={() => setStep(3)}
               disabled={!canGoStep3}
-              className="min-h-[44px] flex-1 rounded-md bg-brand-600 px-4 font-medium text-white disabled:opacity-40"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl bg-brand-600 px-4 font-heading font-bold text-white shadow-pop disabled:opacity-40"
             >
-              Avanti
+              Avanti →
             </button>
           </div>
         </div>
       )}
 
       {step === 3 && (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">
+        <div className="card-surface flex flex-col gap-4 p-4 sm:p-6">
+          <p className="text-sm font-semibold text-gray-600">
             Genera una copertina suggestiva per il tuo viaggio con l&apos;AI, oppure salta questo passaggio.
           </p>
-          <div className="relative h-48 w-full overflow-hidden rounded-lg bg-brand-50">
+          <div className="relative h-48 w-full overflow-hidden rounded-2xl bg-gradient-to-br from-brand-100 to-lagoon-100">
             {cover ? (
               <Image src={cover.url} alt={title} fill className="object-cover" sizes="512px" />
             ) : (
@@ -433,46 +466,58 @@ export default function NuovoViaggioPage() {
           <button
             onClick={generateCover}
             disabled={coverLoading || !title.trim()}
-            className="min-h-[44px] rounded-md border border-brand-300 px-4 font-medium text-brand-700 disabled:opacity-40"
+            className="tap-scale min-h-[48px] rounded-2xl border-2 border-brand-300 px-4 font-bold text-brand-700 disabled:opacity-40"
           >
-            {coverLoading ? "Generazione in corso..." : cover ? "Rigenera copertina" : "Genera copertina con AI"}
+            {coverLoading ? "✨ Generazione in corso..." : cover ? "🔄 Rigenera copertina" : "✨ Genera copertina con AI"}
           </button>
           <div className="flex gap-3">
             <button
               onClick={() => setStep(2)}
-              className="min-h-[44px] flex-1 rounded-md border border-gray-300 px-4 font-medium text-gray-700"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-700"
             >
-              Indietro
+              ← Indietro
             </button>
             <button
               onClick={() => setStep(4)}
-              className="min-h-[44px] flex-1 rounded-md bg-brand-600 px-4 font-medium text-white"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl bg-brand-600 px-4 font-heading font-bold text-white shadow-pop"
             >
-              Avanti
+              Avanti →
             </button>
           </div>
         </div>
       )}
 
       {step === 4 && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <p className="text-sm text-gray-600">
-            {startDate} → {endDate} · {totalDistance.toFixed(0)} km · {stops.length} tappe
-          </p>
-          <p className="text-sm text-gray-600">
-            {TRIP_TYPE_LABELS[tripType]} · {Number(costEuro) || 0}€ ·{" "}
-            {visibility === "public" ? "🌍 Pubblico" : "🔒 Privato"}
+        <div className="card-surface flex flex-col gap-4 p-4 sm:p-6">
+          <div className="text-center">
+            <p className="text-3xl">🎉</p>
+            <h2 className="font-heading text-lg font-bold text-gray-900">{title}</h2>
+            <p className="text-sm text-gray-500">Tutto pronto per partire!</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-2xl bg-brand-50 px-3 py-2">
+              <p className="font-heading font-bold text-brand-700">{totalDistance.toFixed(0)} km</p>
+              <p className="text-[11px] text-brand-600">{stops.length} tappe</p>
+            </div>
+            <div className="rounded-2xl bg-lagoon-50 px-3 py-2">
+              <p className="font-heading font-bold text-lagoon-700">
+                {TRIP_TYPE_ICONS[tripType]} {Number(costEuro) || 0}€
+              </p>
+              <p className="text-[11px] text-lagoon-600">{visibility === "public" ? "🌍 Pubblico" : "🔒 Privato"}</p>
+            </div>
+          </div>
+          <p className="text-center text-sm text-gray-500">
+            {startDate} → {endDate}
           </p>
           {homeDistanceKm !== null && homeTravelHours !== null && (
-            <p className="text-sm text-gray-600">
+            <p className="text-center text-sm text-gray-500">
               Da casa ({homeLocation?.name}): circa {homeDistanceKm.toFixed(0)} km, {homeTravelHours.toFixed(1)} ore
             </p>
           )}
-          <ol className="flex flex-col gap-2">
+          <ol className="flex flex-col gap-1.5">
             {stops.map((stop, i) => (
-              <li key={stop.id} className="text-sm text-gray-700">
-                {i + 1}. {stop.name}
+              <li key={stop.id} className="rounded-xl bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
+                📍 {i + 1}. {stop.name}
                 {dateRanges[i] &&
                   ` (${formatISODate(dateRanges[i].start)} → ${formatISODate(dateRanges[i].end)})`}
               </li>
@@ -481,16 +526,16 @@ export default function NuovoViaggioPage() {
           <div className="flex gap-3">
             <button
               onClick={() => setStep(3)}
-              className="min-h-[44px] flex-1 rounded-md border border-gray-300 px-4 font-medium text-gray-700"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-700"
             >
-              Indietro
+              ← Indietro
             </button>
             <button
               onClick={publish}
               disabled={publishing}
-              className="min-h-[44px] flex-1 rounded-md bg-brand-600 px-4 font-medium text-white disabled:opacity-40"
+              className="tap-scale min-h-[48px] flex-1 rounded-2xl bg-brand-600 px-4 font-heading font-bold text-white shadow-pop disabled:opacity-40"
             >
-              {publishing ? "Pubblicazione..." : "Pubblica viaggio"}
+              {publishing ? "Pubblicazione..." : "🚀 Pubblica viaggio"}
             </button>
           </div>
         </div>

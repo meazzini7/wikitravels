@@ -63,22 +63,27 @@ export default function ChatThreadPage() {
   if (loading || !user) return null;
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-56px)] max-w-2xl flex-col px-4 py-4 sm:h-[calc(100vh-56px)]">
-      <div className="mb-3 border-b border-gray-100 pb-3">
-        <Link href={`/utenti/${params.uid}`} className="font-semibold text-gray-900 hover:text-brand-700">
-          {otherUser?.displayName ?? "Viaggiatore"}
+    <main className="mx-auto flex h-[calc(100vh-64px)] max-w-2xl flex-col px-4 py-4">
+      <div className="mb-3 flex items-center gap-2 border-b border-brand-100 pb-3">
+        <Link
+          href={`/utenti/${params.uid}`}
+          className="font-heading font-bold text-gray-900 hover:text-brand-700"
+        >
+          👤 {otherUser?.displayName ?? "Viaggiatore"}
         </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 py-2">
           {messages.map((msg) => {
             const mine = msg.senderId === user.uid;
             return (
               <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <p
-                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                    mine ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-900"
+                  className={`max-w-[75%] rounded-3xl px-4 py-2 text-sm shadow-sm ${
+                    mine
+                      ? "rounded-br-md bg-gradient-to-br from-brand-500 to-brand-600 text-white"
+                      : "rounded-bl-md bg-white text-gray-900"
                   }`}
                 >
                   {msg.text}
@@ -90,7 +95,7 @@ export default function ChatThreadPage() {
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2 border-t border-gray-100 pt-3">
+      <div className="mt-3 flex gap-2 border-t border-brand-100 pt-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -98,14 +103,14 @@ export default function ChatThreadPage() {
             if (e.key === "Enter") handleSend();
           }}
           placeholder="Scrivi un messaggio..."
-          className="flex-1 rounded-full border border-gray-300 px-4 py-2"
+          className="flex-1 rounded-full border-2 border-gray-200 px-4 py-2 focus:border-brand-400 focus:outline-none"
         />
         <button
           onClick={handleSend}
           disabled={sending || !text.trim()}
-          className="min-h-[44px] rounded-full bg-brand-600 px-5 font-medium text-white disabled:opacity-40"
+          className="tap-scale min-h-[44px] rounded-full bg-brand-600 px-5 font-bold text-white shadow-pop disabled:opacity-40"
         >
-          Invia
+          ➤
         </button>
       </div>
     </main>

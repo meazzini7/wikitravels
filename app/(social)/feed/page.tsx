@@ -8,7 +8,11 @@ import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { computeMatchScore } from "@/lib/travel-utils";
 import { defaultInterestScores } from "@/lib/interests";
+import { TRIP_TYPE_LABELS } from "@/lib/trip-types";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import PageHero from "@/components/ui/PageHero";
+import MatchGauge from "@/components/ui/MatchGauge";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Trip } from "@/lib/types";
 
 export default function FeedPage() {
@@ -47,7 +51,7 @@ export default function FeedPage() {
       <main className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-gray-600">
           Devi{" "}
-          <Link href="/login" className="font-medium text-brand-700">
+          <Link href="/login" className="font-bold text-brand-700">
             accedere
           </Link>{" "}
           per vedere il feed.
@@ -57,18 +61,27 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Feed viaggi</h1>
+    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <PageHero
+        eyebrow="Scopri"
+        title="Feed viaggi 🧭"
+        subtitle="Ordinati per quanto assomigliano ai tuoi interessi"
+        className="mb-6"
+      />
       {loadingFeed ? (
-        <p className="text-gray-500">Caricamento...</p>
+        <div className="flex flex-col gap-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-3xl bg-gray-100" />
+          ))}
+        </div>
       ) : rankedTrips.length === 0 ? (
-        <p className="text-gray-500">Nessun viaggio pubblicato ancora.</p>
+        <EmptyState title="Nessun viaggio pubblicato ancora" description="Torna presto, la community cresce ogni giorno!" />
       ) : (
         <ul className="flex flex-col gap-4">
           {rankedTrips.map(({ trip, matchScore }) => (
-            <li key={trip.id} className="overflow-hidden rounded-lg border border-gray-100">
+            <li key={trip.id} className="card-surface overflow-hidden">
               <Link href={`/viaggi/${trip.id}`} className="block">
-                <div className="relative h-40 w-full bg-brand-50">
+                <div className="relative h-40 w-full bg-gradient-to-br from-brand-100 to-lagoon-100">
                   {trip.coverImageUrl ? (
                     <Image
                       src={trip.coverImageUrl}
@@ -82,14 +95,18 @@ export default function FeedPage() {
                       <FlamingoMascot className="h-14 w-14" />
                     </div>
                   )}
-                  <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-brand-700">
-                    {matchScore}% match
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+                  <span className="absolute right-2 top-2 rounded-full bg-white p-0.5 shadow">
+                    <MatchGauge percent={matchScore} size={40} />
+                  </span>
+                  <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold text-gray-700">
+                    {TRIP_TYPE_LABELS[trip.tripType] ?? "Viaggio"}
                   </span>
                 </div>
               </Link>
               <div className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
-                  <Link href={`/viaggi/${trip.id}`} className="truncate font-semibold text-gray-900">
+                  <Link href={`/viaggi/${trip.id}`} className="truncate font-heading font-bold text-gray-900">
                     {trip.title}
                   </Link>
                   <p className="truncate text-sm text-gray-500">
@@ -97,7 +114,7 @@ export default function FeedPage() {
                   </p>
                   <Link
                     href={`/utenti/${trip.authorId}`}
-                    className="text-sm text-brand-700 hover:underline"
+                    className="text-sm font-semibold text-brand-700 hover:underline"
                   >
                     {trip.authorDisplayName}
                   </Link>

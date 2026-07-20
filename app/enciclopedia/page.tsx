@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
+import FlamingoMascot from "@/components/FlamingoMascot";
 import type { Article } from "@/lib/types";
 
 export const revalidate = 3600;
@@ -31,23 +32,28 @@ export default async function EnciclopediaPage() {
   const articles = await getArticles();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 text-3xl font-bold text-gray-900">Enciclopedia dei viaggi</h1>
-      <p className="mb-8 text-gray-600">
-        Guide di destinazioni generate e aggiornate ogni giorno, per ispirare il tuo prossimo viaggio.
-      </p>
+    <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
+      <div className="relative mb-8 overflow-hidden rounded-4xl bg-gradient-to-br from-lagoon-600 via-lagoon-500 to-brand-500 px-6 py-8 text-center text-white shadow-pop sm:px-10 sm:py-10">
+        <h1 className="font-heading text-2xl font-extrabold sm:text-4xl">📖 Enciclopedia dei viaggi</h1>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-white/90 sm:text-base">
+          Guide di destinazioni generate e aggiornate ogni giorno, per ispirare il tuo prossimo viaggio.
+        </p>
+      </div>
       {articles.length === 0 ? (
-        <p className="text-gray-500">Il primo articolo arriva a breve.</p>
+        <div className="card-surface flex flex-col items-center gap-2 p-10 text-center">
+          <FlamingoMascot className="h-14 w-14 opacity-70" />
+          <p className="font-heading font-bold text-gray-900">Il primo articolo arriva a breve</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {articles.map((article) => (
             <Link
               key={article.slug}
               href={`/enciclopedia/${article.slug}`}
-              className="block overflow-hidden rounded-lg border border-gray-100 hover:border-brand-200"
+              className="tap-scale card-surface overflow-hidden hover:border-brand-200"
             >
-              <div className="relative h-40 w-full bg-brand-50">
-                {article.coverImageUrl && (
+              <div className="relative h-40 w-full bg-gradient-to-br from-brand-100 to-lagoon-100">
+                {article.coverImageUrl ? (
                   <Image
                     src={article.coverImageUrl}
                     alt={article.title}
@@ -55,10 +61,17 @@ export default async function EnciclopediaPage() {
                     className="object-cover"
                     sizes="(min-width: 640px) 400px, 100vw"
                   />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-brand-300">
+                    <FlamingoMascot className="h-12 w-12" />
+                  </div>
                 )}
+                <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                  📍 {article.destination}
+                </span>
               </div>
               <div className="p-4">
-                <h2 className="font-semibold text-gray-900">{article.title}</h2>
+                <h2 className="font-heading font-bold text-gray-900">{article.title}</h2>
                 <p className="mt-1 line-clamp-2 text-sm text-gray-600">{article.seo?.metaDescription}</p>
               </div>
             </Link>
