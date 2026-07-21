@@ -5,28 +5,14 @@ export interface GeocodeResult {
   countryCode: string;
 }
 
-interface NominatimItem {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: { country_code?: string };
-}
-
-// Nominatim (OpenStreetMap): ricerca luoghi gratuita, nessuna API key. Usata
-// al posto di Google Places Autocomplete per evitare di dover attivare la
-// fatturazione di Google Cloud (vedi HANDOFF sezione 6).
+// Ricerca luoghi (Nominatim/OpenStreetMap, gratuita) tramite il nostro
+// endpoint server-side /api/geocoding/search, che si occupa di impostare lo
+// User-Agent richiesto dalla policy di Nominatim (vedi quel file).
 export async function searchPlaces(queryText: string): Promise<GeocodeResult[]> {
   const q = queryText.trim();
   if (q.length < 3) return [];
 
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await fetch(`/api/geocoding/search?q=${encodeURIComponent(q)}`);
   if (!res.ok) return [];
-  const data = (await res.json()) as NominatimItem[];
-  return data.map((item) => ({
-    label: item.display_name,
-    lat: Number(item.lat),
-    lng: Number(item.lon),
-    countryCode: item.address?.country_code?.toLowerCase() ?? "",
-  }));
+  return (await res.json()) as GeocodeResult[];
 }
