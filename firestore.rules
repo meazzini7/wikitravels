@@ -61,8 +61,15 @@ service cloud.firestore {
           || (get(/databases/$(database)/documents/trips/$(tripId)).data.visibility == 'public'
               && get(/databases/$(database)/documents/trips/$(tripId)).data.status == 'published')
         );
-        allow write: if request.auth != null
-          && request.auth.uid == get(/databases/$(database)/documents/trips/$(tripId)).data.authorId;
+        // NON usare get() sul viaggio padre qui: viaggio e tappe vengono
+        // creati nella stessa scrittura batch, quindi al momento della
+        // valutazione della regola il documento trip potrebbe non esistere
+        // ancora e get() farebbe fallire l'intero batch. Il campo authorId
+        // è denormalizzato su ogni tappa proprio per evitare questo.
+        allow create, update: if request.auth != null
+          && request.auth.uid == request.resource.data.authorId;
+        allow delete: if request.auth != null
+          && request.auth.uid == resource.data.authorId;
       }
     }
 

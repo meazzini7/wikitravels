@@ -10,11 +10,13 @@ import { useAuth } from "@/lib/auth-context";
 import { defaultInterestScores, type InterestScores } from "@/lib/interests";
 import { unlockedBadges } from "@/lib/badges";
 import { fetchVisitedWorldStats, visitedCountriesMap, type VisitedWorldStats } from "@/lib/world-stats";
+import Link from "next/link";
 import InterestSliders from "@/components/InterestSliders";
 import PlaceSearch from "@/components/PlaceSearch";
 import InviteShare from "@/components/InviteShare";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import StatTile from "@/components/ui/StatTile";
+import { BADGES } from "@/lib/badges";
 import type { HomeLocation, Trip } from "@/lib/types";
 
 const WorldMap = dynamic(() => import("@/components/WorldMap"), {
@@ -96,9 +98,25 @@ export default function ProfiloPage() {
         <StatTile icon="🤝" value={profile.stats.followingCount} label="Seguiti" />
       </div>
 
-      {badges.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🏅 Badge sbloccati</h2>
+      {profile.stats.tripsCount === 0 && (
+        <Link
+          href="/viaggi/nuovo"
+          className="tap-scale mb-6 flex items-center gap-3 rounded-3xl border-2 border-dashed border-brand-300 bg-brand-50 p-4"
+        >
+          <span className="text-2xl" aria-hidden>
+            🧳
+          </span>
+          <div className="flex-1">
+            <p className="font-heading font-bold text-brand-700">Non hai ancora pubblicato un viaggio</p>
+            <p className="text-sm text-brand-600">Tocca qui per creare il tuo primo!</p>
+          </div>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
+
+      <div className="mb-6">
+        <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🏅 Badge</h2>
+        {badges.length > 0 ? (
           <ul className="flex flex-wrap gap-2">
             {badges.map((b) => (
               <li
@@ -111,8 +129,12 @@ export default function ProfiloPage() {
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        ) : (
+          <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
+            {BADGES[0].icon} Pubblica il tuo primo viaggio per sbloccare &quot;{BADGES[0].label}&quot;!
+          </p>
+        )}
+      </div>
 
       <div className="card-surface mb-6 p-4 sm:p-5">
         <h2 className="mb-3 font-heading text-sm font-bold text-gray-700">🌍 Il tuo mondo visitato</h2>
@@ -121,6 +143,11 @@ export default function ProfiloPage() {
           <StatTile icon="🗺️" value={worldStats.countriesCount} label="Nazioni" tone="lagoon" />
         </div>
         <WorldMap values={visitedMap} mode="binary" className="h-56 w-full rounded-2xl" />
+        {worldStats.citiesCount === 0 && (
+          <p className="mt-3 text-center text-sm text-gray-500">
+            La mappa si colora man mano che pubblichi viaggi con delle tappe ✈️
+          </p>
+        )}
       </div>
 
       <div className="card-surface mb-6 p-4 sm:p-5">
