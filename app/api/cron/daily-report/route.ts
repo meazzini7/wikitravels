@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendDailyReportEmail } from "../../../../scripts/daily-report";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
 // Vercel Cron chiama questo endpoint 1 volta al giorno (vedi vercel.json).
-// Protetto da CRON_SECRET così nessun altro può triggerarlo.
+// Protetto da CRON_SECRET così nessun altro può triggerarlo (vedi
+// lib/cron-auth.ts per il fallback manuale via ?secret=).
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
   }
 
