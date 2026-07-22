@@ -1,7 +1,17 @@
 import "server-only";
 
+// In precedenza qualsiasi errore (chiave mancante, modello non valido,
+// contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
+// ignorato in silenzio restituendo una stringa vuota: gli articoli
+// venivano pubblicati comunque, ma completamente vuoti. Ora ogni
+// fallimento genera un errore esplicito che risale fino alla risposta
+// dell'endpoint cron.
 export async function askGemini(prompt: string): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("GEMINI_API_KEY non impostata");
+  }
+
   const model = "gemini-2.5-flash";
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
@@ -19,6 +29,23 @@ export async function askGemini(prompt: string): Promise<string> {
       }),
     }
   );
+
   const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+  if (!res.ok) {
+    const message = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
+    throw new Error(`Chiamata Gemini fallita: ${message}`);
+  }
+
+  const blockReason = data?.promptFeedback?.blockReason;
+  if (blockReason) {
+    throw new Error(`Contenuto bloccato dai filtri Gemini: ${blockReason}`);
+  }
+
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error(`Risposta Gemini senza contenuto testuale: ${JSON.stringify(data).slice(0, 300)}`);
+  }
+
+  return text;
 }

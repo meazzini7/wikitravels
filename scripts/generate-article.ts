@@ -191,6 +191,9 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
 
   let content = await askGemini(masterPrompt);
   content = content.replace(/^```html\s*|```\s*$/gim, "").trim();
+  if (content.length < 500) {
+    throw new Error(`Contenuto generato troppo corto o vuoto (${content.length} caratteri), pubblicazione annullata`);
+  }
 
   const scores = await generateScores(title, dest.name, vibe);
   const seo = await generateSeoMeta(title, dest.name);
