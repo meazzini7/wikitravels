@@ -13,14 +13,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
   }
 
-  let uid: string;
   try {
-    uid = (await getAdminAuth().verifyIdToken(token)).uid;
+    await getAdminAuth().verifyIdToken(token);
   } catch {
     return NextResponse.json({ error: "Token non valido" }, { status: 401 });
   }
 
-  const { title, description, tripId } = await req.json();
+  const { title, description } = await req.json();
   if (!title || typeof title !== "string") {
     return NextResponse.json({ error: "Titolo mancante" }, { status: 400 });
   }
@@ -31,8 +30,7 @@ export async function POST(req: NextRequest) {
     );
     const query = rawQuery.trim().replace(/^["']|["']$/g, "") || title;
 
-    const path = `trips/${uid}/${tripId ?? Date.now()}/cover.jpg`;
-    const image = await fetchAndUploadImage(query, path);
+    const image = await fetchAndUploadImage(query);
     if (!image) {
       return NextResponse.json({ error: "Impossibile generare la copertina, riprova." }, { status: 502 });
     }

@@ -1,5 +1,4 @@
 import "server-only";
-import { getAdminStorage } from "../firebase-admin";
 
 export interface UploadedImage {
   url: string;
@@ -8,12 +7,12 @@ export interface UploadedImage {
   alt: string;
 }
 
-// Cerca una foto su Unsplash e la carica su Firebase Storage al path dato.
-// Condiviso tra la generazione articoli enciclopedia e le copertine viaggio.
-export async function fetchAndUploadImage(
-  query: string,
-  path: string
-): Promise<UploadedImage | null> {
+// Cerca una foto su Unsplash e restituisce direttamente il suo URL ospitato
+// da Unsplash (nessun upload su Firebase Storage: evita di dover attivare
+// il piano Blaze solo per questo). È il modo "ufficiale" suggerito da
+// Unsplash quando si dà credito all'autore, cosa che già facciamo.
+// Condivisa tra la generazione articoli enciclopedia e le copertine viaggio.
+export async function fetchAndUploadImage(query: string): Promise<UploadedImage | null> {
   const key = process.env.UNSPLASH_ACCESS_KEY;
   const searchRes = await fetch(
     `https://api.unsplash.com/photos/random?query=${encodeURIComponent(
@@ -26,15 +25,14 @@ export async function fetchAndUploadImage(
   const imgUrl = photo?.urls?.regular;
   if (!imgUrl) return null;
 
-  const imgRes = await fetch(imgUrl);
-  const buffer = Buffer.from(await imgRes.arrayBuffer());
-
-  const bucket = getAdminStorage().bucket();
-  const file = bucket.file(path);
-  await file.save(buffer, { contentType: "image/jpeg", public: true });
+  // Traccia il "download" secondo le linee guida API di Unsplash, senza
+  // bloccare la risposta se fallisce.
+  if (photo.links?.download_location) {
+    fetch(`${photo.links.download_location}&client_id=${key}`).catch(() => {});
+  }
 
   return {
-    url: file.publicUrl(),
+    url: imgUrl,
     author: photo.user?.name ?? "Unsplash",
     link: photo.links?.html ?? "#",
     alt: photo.alt_description ?? query,
