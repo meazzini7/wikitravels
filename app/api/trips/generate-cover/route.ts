@@ -3,6 +3,10 @@ import { getAdminAuth } from "@/lib/firebase-admin";
 import { askGemini } from "@/lib/server/gemini";
 import { fetchAndUploadImage } from "@/lib/server/fetch-and-upload-image";
 
+// Gemini + Unsplash + upload su Storage in sequenza possono superare i 10s
+// di default di Vercel (probabile causa dei fallimenti della copertina AI).
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) {
