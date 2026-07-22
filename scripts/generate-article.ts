@@ -101,7 +101,7 @@ Assegna un punteggio da 0 a 10 per: ${INTEREST_KEYS.join(", ")}.
 Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 6 chiavi esatte.`;
 
   try {
-    const raw = await askGemini(prompt);
+    const raw = await askGemini(prompt, { retryOn429: false });
     const clean = stripCodeFence(raw);
     const parsed = JSON.parse(clean);
     const scores: Record<string, number> = {};
@@ -124,7 +124,7 @@ async function generateSeoMeta(title: string, dest: string) {
 2. Una meta description SEO persuasiva, MAX 155 caratteri.
 Rispondi in JSON puro: {"metaTitle":"...","metaDescription":"..."}`;
   try {
-    const raw = await askGemini(prompt);
+    const raw = await askGemini(prompt, { retryOn429: false });
     const clean = stripCodeFence(raw);
     return JSON.parse(clean);
   } catch (err) {

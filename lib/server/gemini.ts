@@ -1,17 +1,24 @@
 import "server-only";
 
+interface AskGeminiOptions {
+  // Le chiamate secondarie (punteggi, meta SEO) degradano comunque a
+  // default in caso di errore: farle riprovare su 429 spreca solo quota
+  // preziosa sul piano gratuito senza un vero beneficio. Il contenuto
+  // principale dell'articolo, invece, deve poter riprovare.
+  retryOn429?: boolean;
+}
+
 // In precedenza qualsiasi errore (chiave mancante, modello non valido,
 // contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
 // ignorato in silenzio restituendo una stringa vuota: gli articoli
 // venivano pubblicati comunque, ma completamente vuoti. Ora ogni
 // fallimento genera un errore esplicito che risale fino alla risposta
 // dell'endpoint cron.
-//
-// Il piano gratuito di Gemini limita le richieste al minuto: in caso di
-// 429 riproviamo una sola volta, aspettando il tempo suggerito da Google
-// nel messaggio d'errore (o un default), per non far fallire una
-// generazione solo per un rate limit transitorio.
-export async function askGemini(prompt: string, isRetry = false): Promise<string> {
+export async function askGemini(
+  prompt: string,
+  { retryOn429 = true }: AskGeminiOptions = {},
+  isRetry = false
+): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("GEMINI_API_KEY non impostata");
@@ -39,11 +46,11 @@ export async function askGemini(prompt: string, isRetry = false): Promise<string
 
   if (!res.ok) {
     const message: string = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
-    if (res.status === 429 && !isRetry) {
+    if (res.status === 429 && retryOn429 && !isRetry) {
       const match = message.match(/retry in ([\d.]+)s/i);
       const waitSeconds = match ? Math.min(35, parseFloat(match[1]) + 2) : 20;
       await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
-      return askGemini(prompt, true);
+      return askGemini(prompt, { retryOn429 }, true);
     }
     throw new Error(`Chiamata Gemini fallita: ${message}`);
   }
