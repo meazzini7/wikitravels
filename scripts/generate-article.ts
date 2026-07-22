@@ -133,16 +133,61 @@ export async function generateArticle() {
     return null;
   }
 
-  const masterPrompt = `Agisci come un esperto Travel Blogger e specialista SEO. Scrivi una guida di viaggio enciclopedica, ottimizzata per Google, su "${title}" (Destinazione: ${dest.name}, Target: ${vibe}).
-Tono caloroso, persuasivo, con emoji (✈️🌍🏖️).
-Restituisci SOLO HTML puro (no markdown), con questa struttura:
-<h2>Introduzione a ${dest.name} per ${vibe}</h2><p>...</p>
-[IMG_LANDMARK: 3-5 parole inglesi del landmark principale]
-<h2>Cosa vedere e fare</h2><p>...</p>
-[IMG_ACTIVITY: 3-5 parole inglesi dell'attività principale]
-<h2>Dove mangiare e trappole da evitare</h2><p>...</p>
-<table><tr><th>Voce di spesa</th><th>Budget stimato</th></tr>...righe: Voli, Hotel, Pasti, Totale...</table>
-<div class="secret-spot">💡 <b>IL SEGRETO DEL LOCAL:</b> ...</div>`;
+  const masterPrompt = `Agisci come un travel blogger di fama internazionale e uno specialista SEO. Scrivi un articolo enciclopedico completo, dettagliato e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe}).
+
+Tono: caloroso, evocativo, esperto ma amichevole, con qualche emoji pertinente (✈️🌍🏖️🍽️🏨). Scrivi in italiano, frasi scorrevoli, paragrafi brevi (max 4-5 righe), senza ripetizioni.
+
+Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
+
+<h2>Perché scegliere ${dest.name} per un ${vibe}</h2>
+<p>Paragrafo introduttivo coinvolgente (5-8 righe): atmosfera, cosa rende unica la destinazione per questo tipo di viaggio.</p>
+
+[IMG_LANDMARK: 3-5 parole inglesi del monumento o paesaggio più iconico]
+
+<h2>Quando andare</h2>
+<p>Periodo migliore, clima, eventuali eventi o festival stagionali da non perdere.</p>
+
+<h2>Cosa vedere: le tappe imperdibili</h2>
+<ul>
+<li><b>Nome del luogo:</b> descrizione in 1-2 righe.</li>
+(esattamente 5 voci in totale, ognuna con nome in grassetto e breve descrizione)
+</ul>
+
+[IMG_ACTIVITY: 3-5 parole inglesi dell'attività o luogo più caratteristico]
+
+<h2>Cosa fare: esperienze da vivere</h2>
+<ul>
+<li><b>Nome esperienza:</b> descrizione in 1-2 righe.</li>
+(esattamente 4 voci in totale)
+</ul>
+
+<h2>Dove mangiare: la cucina locale</h2>
+<p>Breve introduzione alla cucina locale (2-3 righe).</p>
+<ul>
+<li><b>Piatto o specialità:</b> descrizione golosa in 1-2 righe.</li>
+(esattamente 3 voci in totale; resta generico su locali/ristoranti specifici, es. "un mercato locale", non inventare nomi propri)
+</ul>
+
+[IMG_FOOD: 3-5 parole inglesi di un piatto tipico o mercato locale]
+
+<h2>Dove dormire e come muoversi</h2>
+<p>Zone/quartieri consigliati per dormire in base al tipo di viaggio, e come muoversi in loco (mezzi pubblici, noleggio, a piedi...).</p>
+
+<h2>Budget indicativo</h2>
+<table><tr><th>Voce di spesa</th><th>Budget stimato (a persona)</th></tr>
+<tr><td>Volo</td><td>...</td></tr>
+<tr><td>Alloggio (a notte)</td><td>...</td></tr>
+<tr><td>Pasti (al giorno)</td><td>...</td></tr>
+<tr><td>Attività/ingressi</td><td>...</td></tr>
+<tr><td><b>Totale indicativo (una settimana)</b></td><td><b>...</b></td></tr>
+</table>
+
+<div class="secret-spot">💡 <b>IL SEGRETO DEL LOCAL:</b> un consiglio pratico e poco conosciuto, specifico e utile (2-3 righe), quello che solo chi conosce bene il posto potrebbe dare.</div>
+
+<h2>Un'ultima cosa prima di partire</h2>
+<p>Paragrafo di chiusura ispirazionale (3-4 righe) che invita il lettore a organizzare questo viaggio.</p>
+
+<p><em>⚠️ Le informazioni su prezzi, orari e periodi indicati sono indicative e possono cambiare: verifica sempre le fonti ufficiali prima di partire.</em></p>`;
 
   let content = await askGemini(masterPrompt);
   content = content.replace(/^```html\s*|```\s*$/gim, "").trim();
@@ -154,7 +199,7 @@ Restituisci SOLO HTML puro (no markdown), con questa struttura:
   const cover = await fetchAndUploadImage(dest.keyword);
 
   // Immagini interne: sostituisce i placeholder [IMG_...] con <figure>
-  const matches = [...content.matchAll(/\[(IMG_LANDMARK|IMG_ACTIVITY):\s*(.+?)\]/gi)];
+  const matches = [...content.matchAll(/\[(IMG_LANDMARK|IMG_ACTIVITY|IMG_FOOD):\s*(.+?)\]/gi)];
   for (const m of matches) {
     const keyword = m[2].trim();
     const query = keyword.length < 10 ? `${dest.keyword} ${keyword}` : keyword;
