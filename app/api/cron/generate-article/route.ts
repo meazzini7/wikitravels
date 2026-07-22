@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { generateArticle } from "../../../../scripts/generate-article";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
@@ -18,6 +19,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await generateArticle();
+    if (result) {
+      // Senza questo, la pagina /enciclopedia (ISR, revalidate 1h) resta con
+      // la versione in cache fino alla prossima rigenerazione automatica.
+      revalidatePath("/enciclopedia");
+      revalidatePath(`/enciclopedia/${result.slug}`);
+      revalidatePath("/sitemap.xml");
+    }
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     console.error("Generazione articolo fallita:", err);
