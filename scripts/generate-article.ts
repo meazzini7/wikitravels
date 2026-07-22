@@ -91,21 +91,26 @@ async function pickNextDestination(): Promise<Dest> {
 // ------------------------------------------------------------------
 // 3. Genera i 6 punteggi interesse (JSON strutturato da Gemini)
 // ------------------------------------------------------------------
+// Punteggi e meta SEO sono secondari rispetto al contenuto principale
+// dell'articolo: un fallimento qui (es. rate limit Gemini già consumato
+// dalla chiamata del contenuto) degrada a valori di default invece di far
+// fallire l'intera generazione.
 async function generateScores(title: string, dest: string, vibe: string) {
   const prompt = `Sei un esperto di viaggi. Analizza il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}).
 Assegna un punteggio da 0 a 10 per: ${INTEREST_KEYS.join(", ")}.
 Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 6 chiavi esatte.`;
 
-  const raw = await askGemini(prompt);
-  const clean = stripCodeFence(raw);
   try {
+    const raw = await askGemini(prompt);
+    const clean = stripCodeFence(raw);
     const parsed = JSON.parse(clean);
     const scores: Record<string, number> = {};
     for (const k of INTEREST_KEYS) {
       scores[k] = Math.min(10, Math.max(0, Number(parsed[k] ?? 5)));
     }
     return scores;
-  } catch {
+  } catch (err) {
+    console.error("Impossibile generare i punteggi interesse, uso i default:", err);
     return Object.fromEntries(INTEREST_KEYS.map((k) => [k, 5]));
   }
 }
@@ -118,11 +123,12 @@ async function generateSeoMeta(title: string, dest: string) {
 1. Un meta title SEO accattivante, MAX 60 caratteri.
 2. Una meta description SEO persuasiva, MAX 155 caratteri.
 Rispondi in JSON puro: {"metaTitle":"...","metaDescription":"..."}`;
-  const raw = await askGemini(prompt);
-  const clean = stripCodeFence(raw);
   try {
+    const raw = await askGemini(prompt);
+    const clean = stripCodeFence(raw);
     return JSON.parse(clean);
-  } catch {
+  } catch (err) {
+    console.error("Impossibile generare i meta SEO, uso i default:", err);
     return { metaTitle: title.slice(0, 60), metaDescription: title.slice(0, 155) };
   }
 }
