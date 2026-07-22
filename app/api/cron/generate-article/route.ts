@@ -16,6 +16,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
   }
 
-  const result = await generateArticle();
-  return NextResponse.json({ ok: true, result });
+  try {
+    const result = await generateArticle();
+    return NextResponse.json({ ok: true, result });
+  } catch (err) {
+    console.error("Generazione articolo fallita:", err);
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "Errore sconosciuto" },
+      { status: 500 }
+    );
+  }
 }
