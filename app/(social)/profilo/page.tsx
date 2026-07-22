@@ -97,7 +97,22 @@ export default function ProfiloPage() {
     setSaved(true);
   }
 
-  if (loading || !user || !profile) return null;
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-lg px-4 py-6 sm:py-8">
+        <div className="h-40 w-full animate-pulse rounded-4xl bg-gray-100" />
+      </main>
+    );
+  }
+  if (!user) return null;
+  if (!profile) {
+    return (
+      <main className="mx-auto max-w-lg px-4 py-12 text-center">
+        <FlamingoMascot className="mx-auto mb-3 h-14 w-14 opacity-60" />
+        <p className="text-gray-600">Non riesco a caricare il tuo profilo. Prova a ricaricare la pagina.</p>
+      </main>
+    );
+  }
 
   const badges = unlockedBadges(profile.stats);
 

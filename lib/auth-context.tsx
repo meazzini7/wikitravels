@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb } from "./firebase-client";
+import { ensureUserProfile } from "./ensure-user-profile";
 import type { UserProfile } from "./types";
 
 interface AuthContextValue {
@@ -46,8 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return onSnapshot(
       doc(getFirebaseDb(), "users", user.uid),
       (snap) => {
-        setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
-        setLoading(false);
+        if (snap.exists()) {
+          setProfile(snap.data() as UserProfile);
+          setLoading(false);
+          return;
+        }
+        // Il documento del profilo non esiste (es. creazione fallita al
+        // primo accesso, o una sessione rimasta salvata da prima che il
+        // profilo fosse stato creato): senza questo, il profilo restava
+        // bloccato a null per sempre e pagine come /profilo apparivano
+        // vuote a tempo indeterminato. Lo ricreiamo qui invece di arrenderci.
+        ensureUserProfile(user)
+          .then(setProfile)
+          .catch((err) => console.error("Impossibile creare il profilo mancante:", err))
+          .finally(() => setLoading(false));
       },
       (err) => {
         console.error("Impossibile caricare il profilo:", err);
