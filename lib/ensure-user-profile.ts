@@ -24,6 +24,8 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     createdAt: Date.now(),
     stats: { tripsCount: 0, totalDistanceKm: 0, followersCount: 0, followingCount: 0 },
     homeLocation: null,
+    dreamDestinations: [],
+    dreamDestinationKeys: [],
   };
   await setDoc(ref, profile);
   return profile;

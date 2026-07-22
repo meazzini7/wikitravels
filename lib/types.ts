@@ -15,6 +15,14 @@ export interface HomeLocation {
   countryCode: string;
 }
 
+export interface DreamDestination {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  countryCode: string;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -26,6 +34,11 @@ export interface UserProfile {
   createdAt: number;
   stats: UserStats;
   homeLocation: HomeLocation | null;
+  dreamDestinations: DreamDestination[];
+  // Chiavi in minuscolo (nome città + codice paese) derivate da
+  // dreamDestinations: permettono una query Firestore "array-contains-any"
+  // per trovare chi sogna una certa meta, senza dover confrontare oggetti.
+  dreamDestinationKeys: string[];
 }
 
 export interface TripStop {
@@ -65,12 +78,15 @@ export interface Trip {
 
 export interface Notification {
   id: string;
-  type: "follow" | "trip";
-  fromUid: string;
-  fromDisplayName: string;
+  type: "follow" | "trip" | "dream_trip" | "dream_article";
+  fromUid: string | null;
+  fromDisplayName: string | null;
   fromPhotoURL: string | null;
   tripId: string | null;
   tripTitle: string | null;
+  articleSlug: string | null;
+  articleTitle: string | null;
+  destinationName: string | null;
   createdAt: number;
   read: boolean;
 }

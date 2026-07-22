@@ -14,6 +14,8 @@ import { getAdminDb } from "../lib/firebase-admin";
 import { INTEREST_KEYS } from "../lib/interests";
 import { askGemini } from "../lib/server/gemini";
 import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
+import { destinationMatchKeys } from "../lib/dream-destinations";
+import type { UserProfile } from "../lib/types";
 
 // Rimuove un eventuale blocco di codice markdown (```html o ```json) che
 // avvolge l'intera risposta. Ancorato solo a inizio/fine dell'intera
@@ -125,6 +127,42 @@ Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa s
   } catch (err) {
     console.error("Impossibile generare punteggi/meta SEO, uso i default:", err);
     return fallback;
+  }
+}
+
+// ------------------------------------------------------------------
+// 4. Avvisa chi ha salvato questa destinazione tra le proprie mete dei
+//    sogni (lato Admin SDK, non passa dalle regole Firestore lato client).
+//    Un fallimento qui non deve mai far fallire la pubblicazione dell'articolo.
+// ------------------------------------------------------------------
+async function notifyDreamDestinationMatches(destinationName: string, article: { slug: string; title: string }) {
+  const key = destinationMatchKeys(destinationName)[0];
+  if (!key) return;
+  try {
+    const snap = await getAdminDb().collection("users").where("dreamDestinationKeys", "array-contains", key).get();
+    await Promise.all(
+      snap.docs.map((d) => {
+        const target = d.data() as UserProfile;
+        const matched = target.dreamDestinations?.find((dream) =>
+          destinationMatchKeys(dream.name, dream.countryCode).includes(key)
+        );
+        return getAdminDb().collection("users").doc(d.id).collection("notifications").add({
+          type: "dream_article",
+          fromUid: null,
+          fromDisplayName: null,
+          fromPhotoURL: null,
+          tripId: null,
+          tripTitle: null,
+          articleSlug: article.slug,
+          articleTitle: article.title,
+          destinationName: matched?.name ?? destinationName,
+          createdAt: Date.now(),
+          read: false,
+        });
+      })
+    );
+  } catch (err) {
+    console.error("Impossibile notificare le mete dei sogni per l'articolo:", err);
   }
 }
 
@@ -251,6 +289,8 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
     views: 0,
     createdAt: new Date(),
   });
+
+  await notifyDreamDestinationMatches(dest.name, { slug, title });
 
   console.log(`✅ Articolo pubblicato: ${title} (${slug})`);
   return { title, slug };

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
 import ShareButtons from "@/components/ShareButtons";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import type { Article } from "@/lib/types";
 
 export const revalidate = 3600;
@@ -138,6 +139,18 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         </div>
       )}
       <h1 className="mb-3 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.title}</h1>
+
+      <ul className="mb-4 flex flex-wrap gap-1.5">
+        {topInterests(article.scores, 3).map((key) => (
+          <li
+            key={key}
+            className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700"
+          >
+            <span aria-hidden>{INTEREST_ICONS[key]}</span>
+            {INTEREST_LABELS[key]}
+          </li>
+        ))}
+      </ul>
 
       <div className="mb-6">
         <ShareButtons url={articleUrl} title={article.title} />
