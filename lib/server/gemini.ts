@@ -46,9 +46,14 @@ export async function askGemini(
 
   if (!res.ok) {
     const message: string = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
-    if (res.status === 429 && retryOn429 && !isRetry) {
+    // 429 = quota superata (aspetta il tempo suggerito da Google);
+    // 503 = modello temporaneamente sovraccarico lato Google (di solito
+    // si risolve da solo in pochi secondi).
+    const isRateLimit = res.status === 429;
+    const isOverloaded = res.status === 503 || /overload|high demand/i.test(message);
+    if ((isRateLimit || isOverloaded) && retryOn429 && !isRetry) {
       const match = message.match(/retry in ([\d.]+)s/i);
-      const waitSeconds = match ? Math.min(35, parseFloat(match[1]) + 2) : 20;
+      const waitSeconds = match ? Math.min(35, parseFloat(match[1]) + 2) : isOverloaded ? 12 : 20;
       await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
       return askGemini(prompt, { retryOn429 }, true);
     }
