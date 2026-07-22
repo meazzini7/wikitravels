@@ -15,6 +15,8 @@ export default function robots(): MetadataRoute.Robots {
           "/profilo",
           "/onboarding",
           "/viaggi/nuovo",
+          "/login",
+          "/registrati",
         ],
       },
     ],
