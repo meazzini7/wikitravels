@@ -10,14 +10,17 @@ import { useAuth } from "@/lib/auth-context";
 import { defaultInterestScores, type InterestScores } from "@/lib/interests";
 import { unlockedBadges } from "@/lib/badges";
 import { fetchVisitedWorldStats, visitedCountriesMap, type VisitedWorldStats } from "@/lib/world-stats";
+import { destinationMatchKeys } from "@/lib/dream-destinations";
+import { generateId } from "@/lib/id";
 import Link from "next/link";
 import InterestSliders from "@/components/InterestSliders";
 import PlaceSearch from "@/components/PlaceSearch";
 import InviteShare from "@/components/InviteShare";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import SimilarUsers from "@/components/SimilarUsers";
 import StatTile from "@/components/ui/StatTile";
 import { BADGES } from "@/lib/badges";
-import type { HomeLocation, Trip } from "@/lib/types";
+import type { DreamDestination, HomeLocation, Trip } from "@/lib/types";
 
 const WorldMap = dynamic(() => import("@/components/WorldMap"), {
   ssr: false,
@@ -30,6 +33,7 @@ export default function ProfiloPage() {
   const [interests, setInterests] = useState<InterestScores>(defaultInterestScores());
   const [bio, setBio] = useState("");
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
+  const [dreamDestinations, setDreamDestinations] = useState<DreamDestination[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [myTrips, setMyTrips] = useState<Trip[]>([]);
@@ -44,6 +48,7 @@ export default function ProfiloPage() {
       setInterests(profile.interests ?? defaultInterestScores());
       setBio(profile.bio ?? "");
       setHomeLocation(profile.homeLocation ?? null);
+      setDreamDestinations(profile.dreamDestinations ?? []);
     }
   }, [profile]);
 
@@ -59,11 +64,35 @@ export default function ProfiloPage() {
 
   const visitedMap = useMemo(() => visitedCountriesMap(myTrips), [myTrips]);
 
+  function addDreamDestination(place: { label: string; lat: number; lng: number; countryCode: string }) {
+    const name = place.label.split(",").slice(0, 2).join(",").trim() || place.label;
+    setDreamDestinations((prev) => {
+      const alreadyThere = prev.some(
+        (d) => d.name.toLowerCase() === name.toLowerCase() && d.countryCode === place.countryCode
+      );
+      if (alreadyThere) return prev;
+      return [...prev, { id: generateId(), name, lat: place.lat, lng: place.lng, countryCode: place.countryCode }];
+    });
+  }
+
+  function removeDreamDestination(id: string) {
+    setDreamDestinations((prev) => prev.filter((d) => d.id !== id));
+  }
+
   async function save() {
     if (!user) return;
     setSaving(true);
     setSaved(false);
-    await updateDoc(doc(getFirebaseDb(), "users", user.uid), { interests, bio, homeLocation });
+    const dreamDestinationKeys = Array.from(
+      new Set(dreamDestinations.flatMap((d) => destinationMatchKeys(d.name, d.countryCode)))
+    );
+    await updateDoc(doc(getFirebaseDb(), "users", user.uid), {
+      interests,
+      bio,
+      homeLocation,
+      dreamDestinations,
+      dreamDestinationKeys,
+    });
     setSaving(false);
     setSaved(true);
   }
@@ -183,8 +212,42 @@ export default function ProfiloPage() {
       </div>
 
       <div className="card-surface mb-6 p-4 sm:p-5">
+        <span className="mb-1 block text-sm font-bold text-gray-700">🌟 Le tue mete dei sogni</span>
+        <p className="mb-2 text-xs text-gray-500">
+          Ti avviseremo quando esce un nuovo viaggio o articolo su una di queste mete.
+        </p>
+        {dreamDestinations.length > 0 && (
+          <ul className="mb-3 flex flex-wrap gap-2">
+            {dreamDestinations.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center gap-1.5 rounded-full bg-sun-50 px-3 py-1.5 text-sm font-bold text-sun-700"
+              >
+                <span aria-hidden>✨</span>
+                {d.name}
+                <button
+                  type="button"
+                  onClick={() => removeDreamDestination(d.id)}
+                  aria-label={`Rimuovi ${d.name} dalle mete dei sogni`}
+                  className="tap-scale ml-0.5 text-sun-500 hover:text-sun-700"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <PlaceSearch placeholder="Es. Bali, Indonesia" onSelect={addDreamDestination} />
+      </div>
+
+      <div className="card-surface mb-6 p-4 sm:p-5">
         <h2 className="mb-3 font-heading text-sm font-bold text-gray-700">💛 I tuoi interessi</h2>
         <InterestSliders value={interests} onChange={setInterests} />
+      </div>
+
+      <div className="mb-6">
+        <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">👥 Persone come te</h2>
+        <SimilarUsers currentUid={user.uid} interests={interests} />
       </div>
 
       <button

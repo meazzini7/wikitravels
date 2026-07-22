@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { searchPlaces, type GeocodeResult } from "@/lib/geocoding";
 
 interface PlaceSearchProps {
@@ -15,6 +15,7 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -37,28 +38,71 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
     return () => clearTimeout(debounceRef.current);
   }, [text]);
 
+  function selectResult(r: GeocodeResult) {
+    onSelect(r);
+    setText(r.label);
+    setOpen(false);
+    setResults([]);
+    setError(null);
+  }
+
+  // Prima il "Aggiungi" funzionava solo cliccando un suggerimento del
+  // dropdown: chi scriveva un luogo e premeva Invio (o cliccava altrove
+  // prima che arrivasse la risposta di Nominatim) non vedeva succedere
+  // nulla, e restava bloccato con il bottone "Avanti" disabilitato senza
+  // nessun messaggio. Ora Invio seleziona il primo risultato già trovato,
+  // oppure lancia subito una ricerca (senza aspettare il debounce) e
+  // mostra un errore chiaro se non trova nulla.
+  async function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (results.length > 0) {
+      selectResult(results[0]);
+      return;
+    }
+    const q = text.trim();
+    if (q.length < 3) {
+      setError("Scrivi almeno 3 caratteri per cercare un luogo.");
+      return;
+    }
+    setSearching(true);
+    setError(null);
+    try {
+      const found = await searchPlaces(q);
+      if (found.length > 0) {
+        selectResult(found[0]);
+      } else {
+        setError(`Nessun luogo trovato per "${q}". Prova con un nome diverso, ad esempio solo la città.`);
+      }
+    } catch {
+      setError("Ricerca non riuscita, riprova tra poco.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
   return (
     <div className={`relative ${className ?? ""}`}>
       <input
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setError(null);
+        }}
         onFocus={() => results.length > 0 && setOpen(true)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder ?? "Cerca una città o un luogo..."}
         className="w-full rounded-md border border-gray-300 px-3 py-2"
       />
       {searching && <p className="mt-1 text-xs text-gray-400">Ricerca in corso...</p>}
+      {!searching && error && <p className="mt-1 text-xs text-red-500">{error}</p>}
       {open && results.length > 0 && (
         <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {results.map((r, i) => (
             <li key={`${r.lat}-${r.lng}-${i}`}>
               <button
                 type="button"
-                onClick={() => {
-                  onSelect(r);
-                  setText(r.label);
-                  setOpen(false);
-                  setResults([]);
-                }}
+                onClick={() => selectResult(r)}
                 className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-brand-50"
               >
                 {r.label}

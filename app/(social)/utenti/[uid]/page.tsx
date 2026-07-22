@@ -8,15 +8,18 @@ import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebas
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { unlockedBadges } from "@/lib/badges";
+import { computeMatchScore } from "@/lib/travel-utils";
+import { INTEREST_ICONS, INTEREST_KEYS, INTEREST_LABELS } from "@/lib/interests";
 import FollowButton from "@/components/FollowButton";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import StatTile from "@/components/ui/StatTile";
 import EmptyState from "@/components/ui/EmptyState";
+import MatchGauge from "@/components/ui/MatchGauge";
 import type { Trip, UserProfile } from "@/lib/types";
 
 export default function PublicProfilePage() {
   const params = useParams<{ uid: string }>();
-  const { user } = useAuth();
+  const { user, profile: viewerProfile } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -99,6 +102,29 @@ export default function PublicProfilePage() {
           </Link>
         </div>
       )}
+
+      <div className="card-surface mb-6 p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-heading text-sm font-bold text-gray-700">💛 Interessi</h2>
+          {!isSelf && viewerProfile && (
+            <div className="flex items-center gap-2">
+              <MatchGauge percent={computeMatchScore(viewerProfile.interests, profile.interests)} size={36} />
+              <span className="text-xs font-semibold text-gray-500">di affinità con te</span>
+            </div>
+          )}
+        </div>
+        <ul className="flex flex-wrap gap-2">
+          {INTEREST_KEYS.map((key) => (
+            <li
+              key={key}
+              className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-sm font-bold text-brand-700"
+            >
+              <span aria-hidden>{INTEREST_ICONS[key]}</span>
+              {INTEREST_LABELS[key]} · {profile.interests[key]}/10
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {badges.length > 0 && (
         <div className="mb-6">

@@ -73,33 +73,55 @@ export default function NotifichePage() {
         <EmptyState title="Nessuna notifica per ora" description="Quando qualcuno ti segue o pubblica un viaggio, lo vedrai qui." />
       ) : (
         <ul className="flex flex-col gap-2">
-          {items.map((n) => (
-            <li key={n.id}>
-              <Link
-                href={n.type === "trip" && n.tripId ? `/viaggi/${n.tripId}` : `/utenti/${n.fromUid}`}
-                className={`tap-scale flex items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
-                  n.read ? "border-transparent bg-white/70" : "border-brand-200 bg-brand-50"
-                }`}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm" aria-hidden>
-                  {n.type === "trip" ? "🧳" : "👤"}
-                </span>
-                <p className="flex-1 text-sm text-gray-700">
-                  {n.type === "trip" ? (
-                    <>
-                      <strong>{n.fromDisplayName}</strong> ha pubblicato un nuovo viaggio
-                      {n.tripTitle ? `: ${n.tripTitle}` : ""}
-                    </>
-                  ) : (
-                    <>
-                      <strong>{n.fromDisplayName}</strong> ha iniziato a seguirti
-                    </>
-                  )}
-                </p>
-                <span className="shrink-0 text-xs font-semibold text-gray-400">{timeAgo(n.createdAt)}</span>
-              </Link>
-            </li>
-          ))}
+          {items.map((n) => {
+            const href =
+              n.type === "trip" || n.type === "dream_trip"
+                ? `/viaggi/${n.tripId}`
+                : n.type === "dream_article"
+                  ? `/enciclopedia/${n.articleSlug}`
+                  : `/utenti/${n.fromUid}`;
+            const icon =
+              n.type === "trip" || n.type === "dream_trip" ? "🧳" : n.type === "dream_article" ? "🌟" : "👤";
+            return (
+              <li key={n.id}>
+                <Link
+                  href={href}
+                  className={`tap-scale flex items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
+                    n.read ? "border-transparent bg-white/70" : "border-brand-200 bg-brand-50"
+                  }`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-lg shadow-sm" aria-hidden>
+                    {icon}
+                  </span>
+                  <p className="flex-1 text-sm text-gray-700">
+                    {n.type === "trip" ? (
+                      <>
+                        <strong>{n.fromDisplayName}</strong> ha pubblicato un nuovo viaggio
+                        {n.tripTitle ? `: ${n.tripTitle}` : ""}
+                      </>
+                    ) : n.type === "dream_trip" ? (
+                      <>
+                        Nuovo viaggio su una tua meta dei sogni
+                        {n.destinationName ? ` (${n.destinationName})` : ""}
+                        {n.tripTitle ? `: ${n.tripTitle}` : ""}
+                      </>
+                    ) : n.type === "dream_article" ? (
+                      <>
+                        Nuovo articolo su una tua meta dei sogni
+                        {n.destinationName ? ` (${n.destinationName})` : ""}
+                        {n.articleTitle ? `: ${n.articleTitle}` : ""}
+                      </>
+                    ) : (
+                      <>
+                        <strong>{n.fromDisplayName}</strong> ha iniziato a seguirti
+                      </>
+                    )}
+                  </p>
+                  <span className="shrink-0 text-xs font-semibold text-gray-400">{timeAgo(n.createdAt)}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>

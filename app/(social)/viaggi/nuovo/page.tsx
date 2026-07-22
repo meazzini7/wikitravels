@@ -17,7 +17,7 @@ import {
 } from "@/lib/travel-utils";
 import { defaultInterestScores } from "@/lib/interests";
 import { TRIP_TYPES, TRIP_TYPE_LABELS, type TripType } from "@/lib/trip-types";
-import { notifyFollowersOfNewTrip } from "@/lib/social";
+import { notifyDreamDestinationMatches, notifyFollowersOfNewTrip } from "@/lib/social";
 import type { GeocodeResult } from "@/lib/geocoding";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import PlaceSearch from "@/components/PlaceSearch";
@@ -196,12 +196,18 @@ export default function NuovoViaggioPage() {
       await batch.commit();
 
       if (visibility === "public") {
-        notifyFollowersOfNewTrip(user.uid, {
+        const tripInfo = {
           tripId,
           tripTitle: title.trim(),
           authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
           authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
-        }).catch((err) => console.error("Impossibile notificare i follower:", err));
+        };
+        notifyFollowersOfNewTrip(user.uid, tripInfo).catch((err) =>
+          console.error("Impossibile notificare i follower:", err)
+        );
+        notifyDreamDestinationMatches(user.uid, tripInfo, stops).catch((err) =>
+          console.error("Impossibile notificare le mete dei sogni:", err)
+        );
       }
 
       router.push(`/viaggi/${tripId}`);
