@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
+import ShareButtons from "@/components/ShareButtons";
+import FlamingoMascot from "@/components/FlamingoMascot";
 import type { Article } from "@/lib/types";
 
 export const revalidate = 3600;
@@ -14,6 +17,24 @@ async function getArticle(slug: string): Promise<Article | null> {
   } catch (err) {
     console.error("Impossibile caricare l'articolo:", err);
     return null;
+  }
+}
+
+async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
+  try {
+    const snap = await getAdminDb()
+      .collection("articles")
+      .where("status", "==", "published")
+      .orderBy("createdAt", "desc")
+      .limit(7)
+      .get();
+    return snap.docs
+      .map((d) => d.data() as Article)
+      .filter((a) => a.slug !== currentSlug)
+      .slice(0, 3);
+  } catch (err) {
+    console.error("Impossibile caricare gli articoli correlati:", err);
+    return [];
   }
 }
 
@@ -76,8 +97,10 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   const article = await getArticle(params.slug);
   if (!article) notFound();
 
+  const relatedArticles = await getRelatedArticles(article.slug);
   const publishedDate = toIsoDate(article.createdAt);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const articleUrl = `${siteUrl}/enciclopedia/${article.slug}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -114,7 +137,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </span>
         </div>
       )}
-      <h1 className="mb-6 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.title}</h1>
+      <h1 className="mb-3 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.title}</h1>
+
+      <div className="mb-6">
+        <ShareButtons url={articleUrl} title={article.title} />
+      </div>
 
       {/* eslint-disable-next-line react/no-danger */}
       <div
@@ -128,7 +155,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       </div>
 
       {article.coverImageCredit && (
-        <p className="text-xs text-gray-500">
+        <p className="mb-8 text-xs text-gray-500">
           Foto di{" "}
           <a
             href={article.coverImageCredit.link}
@@ -140,6 +167,35 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </a>{" "}
           su Unsplash
         </p>
+      )}
+
+      {relatedArticles.length > 0 && (
+        <section>
+          <h2 className="mb-4 font-heading text-lg font-bold text-gray-900">📚 Articoli correlati</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {relatedArticles.map((related) => (
+              <Link
+                key={related.slug}
+                href={`/enciclopedia/${related.slug}`}
+                className="tap-scale card-surface overflow-hidden hover:border-brand-200"
+              >
+                <div className="relative h-24 w-full bg-gradient-to-br from-brand-100 to-lagoon-100">
+                  {related.coverImageUrl ? (
+                    <Image src={related.coverImageUrl} alt={related.title} fill className="object-cover" sizes="300px" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-brand-300">
+                      <FlamingoMascot className="h-8 w-8" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-brand-600">{related.destination}</p>
+                  <h3 className="truncate font-heading text-sm font-bold text-gray-900">{related.title}</h3>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
     </main>
   );
