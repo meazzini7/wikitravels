@@ -89,47 +89,42 @@ async function pickNextDestination(): Promise<Dest> {
 }
 
 // ------------------------------------------------------------------
-// 3. Genera i 6 punteggi interesse (JSON strutturato da Gemini)
+// 3. Genera punteggi interesse + meta SEO in UNA sola chiamata Gemini
+//    (erano due chiamate separate: unite per consumare meno quota sul
+//    piano gratuito). Sono metadati secondari rispetto al contenuto
+//    principale: un fallimento qui degrada a valori di default invece di
+//    far fallire l'intera generazione.
 // ------------------------------------------------------------------
-// Punteggi e meta SEO sono secondari rispetto al contenuto principale
-// dell'articolo: un fallimento qui (es. rate limit Gemini già consumato
-// dalla chiamata del contenuto) degrada a valori di default invece di far
-// fallire l'intera generazione.
-async function generateScores(title: string, dest: string, vibe: string) {
-  const prompt = `Sei un esperto di viaggi. Analizza il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}).
-Assegna un punteggio da 0 a 10 per: ${INTEREST_KEYS.join(", ")}.
-Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 6 chiavi esatte.`;
+async function generateMetadata(title: string, dest: string, vibe: string) {
+  const prompt = `Sei un esperto di viaggi e SEO. Per il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}):
+1. Assegna un punteggio da 0 a 10 per ciascuno di questi interessi: ${INTEREST_KEYS.join(", ")}.
+2. Scrivi un meta title SEO accattivante, MAX 60 caratteri.
+3. Scrivi una meta description SEO persuasiva, MAX 155 caratteri.
+Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa struttura:
+{"scores": {${INTEREST_KEYS.map((k) => `"${k}": 0`).join(", ")}}, "seo": {"metaTitle": "...", "metaDescription": "..."}}`;
+
+  const fallback = {
+    scores: Object.fromEntries(INTEREST_KEYS.map((k) => [k, 5])),
+    seo: { metaTitle: title.slice(0, 60), metaDescription: title.slice(0, 155) },
+  };
 
   try {
     const raw = await askGemini(prompt, { retryOn429: false });
-    const clean = stripCodeFence(raw);
-    const parsed = JSON.parse(clean);
+    const parsed = JSON.parse(stripCodeFence(raw));
     const scores: Record<string, number> = {};
     for (const k of INTEREST_KEYS) {
-      scores[k] = Math.min(10, Math.max(0, Number(parsed[k] ?? 5)));
+      scores[k] = Math.min(10, Math.max(0, Number(parsed?.scores?.[k] ?? 5)));
     }
-    return scores;
+    return {
+      scores,
+      seo: {
+        metaTitle: parsed?.seo?.metaTitle ?? fallback.seo.metaTitle,
+        metaDescription: parsed?.seo?.metaDescription ?? fallback.seo.metaDescription,
+      },
+    };
   } catch (err) {
-    console.error("Impossibile generare i punteggi interesse, uso i default:", err);
-    return Object.fromEntries(INTEREST_KEYS.map((k) => [k, 5]));
-  }
-}
-
-// ------------------------------------------------------------------
-// 4. Genera meta title/description SEO
-// ------------------------------------------------------------------
-async function generateSeoMeta(title: string, dest: string) {
-  const prompt = `Scrivi per la pagina "${title}" (viaggio a ${dest}):
-1. Un meta title SEO accattivante, MAX 60 caratteri.
-2. Una meta description SEO persuasiva, MAX 155 caratteri.
-Rispondi in JSON puro: {"metaTitle":"...","metaDescription":"..."}`;
-  try {
-    const raw = await askGemini(prompt, { retryOn429: false });
-    const clean = stripCodeFence(raw);
-    return JSON.parse(clean);
-  } catch (err) {
-    console.error("Impossibile generare i meta SEO, uso i default:", err);
-    return { metaTitle: title.slice(0, 60), metaDescription: title.slice(0, 155) };
+    console.error("Impossibile generare punteggi/meta SEO, uso i default:", err);
+    return fallback;
   }
 }
 
@@ -216,8 +211,7 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
     );
   }
 
-  const scores = await generateScores(title, dest.name, vibe);
-  const seo = await generateSeoMeta(title, dest.name);
+  const { scores, seo } = await generateMetadata(title, dest.name, vibe);
 
   // Copertina
   const cover = await fetchAndUploadImage(dest.keyword);

@@ -8,23 +8,18 @@ interface AskGeminiOptions {
   retryOn429?: boolean;
 }
 
-// In precedenza qualsiasi errore (chiave mancante, modello non valido,
-// contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
-// ignorato in silenzio restituendo una stringa vuota: gli articoli
-// venivano pubblicati comunque, ma completamente vuoti. Ora ogni
-// fallimento genera un errore esplicito che risale fino alla risposta
-// dell'endpoint cron.
-export async function askGemini(
-  prompt: string,
-  { retryOn429 = true }: AskGeminiOptions = {},
-  isRetry = false
-): Promise<string> {
+const PRIMARY_MODEL = "gemini-2.5-flash";
+// Se il modello principale è limitato/sovraccarico, ritentiamo con un
+// modello diverso: la quota gratuita è tracciata per modello, quindi ha
+// buone probabilità di avere ancora margine anche quando il primo è
+// esaurito.
+const FALLBACK_MODEL = "gemini-2.0-flash";
+
+async function callGemini(prompt: string, model: string): Promise<{ res: Response; data: any }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("GEMINI_API_KEY non impostata");
   }
-
-  const model = "gemini-2.5-flash";
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {
@@ -41,23 +36,44 @@ export async function askGemini(
       }),
     }
   );
-
   const data = await res.json();
+  return { res, data };
+}
+
+function extractText(data: any): string | null {
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+}
+
+// In precedenza qualsiasi errore (chiave mancante, modello non valido,
+// contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
+// ignorato in silenzio restituendo una stringa vuota: gli articoli
+// venivano pubblicati comunque, ma completamente vuoti. Ora ogni
+// fallimento genera un errore esplicito che risale fino alla risposta
+// dell'endpoint cron.
+export async function askGemini(
+  prompt: string,
+  { retryOn429 = true }: AskGeminiOptions = {},
+  model: string = PRIMARY_MODEL,
+  isRetry = false
+): Promise<string> {
+  const { res, data } = await callGemini(prompt, model);
 
   if (!res.ok) {
     const message: string = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
-    // 429 = quota superata (aspetta il tempo suggerito da Google);
-    // 503 = modello temporaneamente sovraccarico lato Google (di solito
-    // si risolve da solo in pochi secondi).
+    // 429 = quota superata; 503/"high demand" = modello temporaneamente
+    // sovraccarico lato Google. In entrambi i casi ritentiamo UNA volta,
+    // passando al modello di riserva invece di ripetere sulla stessa
+    // quota (probabilmente ancora esaurita subito dopo).
     const isRateLimit = res.status === 429;
     const isOverloaded = res.status === 503 || /overload|high demand/i.test(message);
     if ((isRateLimit || isOverloaded) && retryOn429 && !isRetry) {
       const match = message.match(/retry in ([\d.]+)s/i);
-      const waitSeconds = match ? Math.min(35, parseFloat(match[1]) + 2) : isOverloaded ? 12 : 20;
+      const waitSeconds = isOverloaded ? 8 : match ? Math.min(15, parseFloat(match[1]) + 2) : 15;
       await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
-      return askGemini(prompt, { retryOn429 }, true);
+      const fallbackModel = model === PRIMARY_MODEL ? FALLBACK_MODEL : model;
+      return askGemini(prompt, { retryOn429 }, fallbackModel, true);
     }
-    throw new Error(`Chiamata Gemini fallita: ${message}`);
+    throw new Error(`Chiamata Gemini fallita (modello ${model}): ${message}`);
   }
 
   const blockReason = data?.promptFeedback?.blockReason;
@@ -65,7 +81,7 @@ export async function askGemini(
     throw new Error(`Contenuto bloccato dai filtri Gemini: ${blockReason}`);
   }
 
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = extractText(data);
   if (!text) {
     throw new Error(`Risposta Gemini senza contenuto testuale: ${JSON.stringify(data).slice(0, 300)}`);
   }
