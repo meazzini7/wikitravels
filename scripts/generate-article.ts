@@ -15,6 +15,19 @@ import { INTEREST_KEYS } from "../lib/interests";
 import { askGemini } from "../lib/server/gemini";
 import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
 
+// Rimuove un eventuale blocco di codice markdown (```html o ```json) che
+// avvolge l'intera risposta. Ancorato solo a inizio/fine dell'intera
+// stringa (niente flag "m"): con ^/$ multiline stripperebbe qualsiasi riga
+// che inizia/finisce con ```, cancellando di fatto interi paragrafi se il
+// contenuto generato contenesse ``` internamente.
+function stripCodeFence(text: string): string {
+  return text
+    .trim()
+    .replace(/^```(?:html|json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+}
+
 // ------------------------------------------------------------------
 // 1. DESTINAZIONI con "tier" — tier 1 = mete più cercate, si esauriscono
 //    prima; poi si passa a tier 2, poi tier 3 (nicchia). Copre più
@@ -84,7 +97,7 @@ Assegna un punteggio da 0 a 10 per: ${INTEREST_KEYS.join(", ")}.
 Rispondi SOLO con un oggetto JSON puro, senza markdown, con queste 6 chiavi esatte.`;
 
   const raw = await askGemini(prompt);
-  const clean = raw.replace(/^```json\s*|```\s*$/gim, "").trim();
+  const clean = stripCodeFence(raw);
   try {
     const parsed = JSON.parse(clean);
     const scores: Record<string, number> = {};
@@ -106,7 +119,7 @@ async function generateSeoMeta(title: string, dest: string) {
 2. Una meta description SEO persuasiva, MAX 155 caratteri.
 Rispondi in JSON puro: {"metaTitle":"...","metaDescription":"..."}`;
   const raw = await askGemini(prompt);
-  const clean = raw.replace(/^```json\s*|```\s*$/gim, "").trim();
+  const clean = stripCodeFence(raw);
   try {
     return JSON.parse(clean);
   } catch {
@@ -189,10 +202,12 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
 
 <p><em>⚠️ Le informazioni su prezzi, orari e periodi indicati sono indicative e possono cambiare: verifica sempre le fonti ufficiali prima di partire.</em></p>`;
 
-  let content = await askGemini(masterPrompt);
-  content = content.replace(/^```html\s*|```\s*$/gim, "").trim();
+  const rawContent = await askGemini(masterPrompt);
+  let content = stripCodeFence(rawContent);
   if (content.length < 500) {
-    throw new Error(`Contenuto generato troppo corto o vuoto (${content.length} caratteri), pubblicazione annullata`);
+    throw new Error(
+      `Contenuto generato troppo corto o vuoto (${content.length} caratteri dopo la pulizia, ${rawContent.length} prima). Anteprima grezza: ${rawContent.slice(0, 300)}`
+    );
   }
 
   const scores = await generateScores(title, dest.name, vibe);
