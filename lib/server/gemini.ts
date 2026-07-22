@@ -8,20 +8,31 @@ interface AskGeminiOptions {
   retryOn429?: boolean;
 }
 
-const PRIMARY_MODEL = "gemini-2.5-flash";
-// Se il modello principale è limitato/sovraccarico, ritentiamo con un
-// modello diverso: la quota gratuita è tracciata per modello, quindi ha
-// buone probabilità di avere ancora margine anche quando il primo è
-// esaurito.
-const FALLBACK_MODEL = "gemini-2.0-flash";
+// Unico modello usato. Un tentativo precedente di "modello di riserva"
+// (gemini-2.0-flash) è stato rimosso: su questo account risulta avere
+// quota gratuita pari a zero (non semplicemente esaurita, proprio non
+// disponibile), quindi ogni retry falliva garantito. Meglio riprovare sullo
+// stesso modello dopo un'attesa che inseguire modelli indisponibili.
+const MODEL = "gemini-2.5-flash";
 
-async function callGemini(prompt: string, model: string): Promise<{ res: Response; data: any }> {
+// In precedenza qualsiasi errore (chiave mancante, modello non valido,
+// contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
+// ignorato in silenzio restituendo una stringa vuota: gli articoli
+// venivano pubblicati comunque, ma completamente vuoti. Ora ogni
+// fallimento genera un errore esplicito che risale fino alla risposta
+// dell'endpoint cron.
+export async function askGemini(
+  prompt: string,
+  { retryOn429 = true }: AskGeminiOptions = {},
+  isRetry = false
+): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("GEMINI_API_KEY non impostata");
   }
+
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,44 +47,20 @@ async function callGemini(prompt: string, model: string): Promise<{ res: Respons
       }),
     }
   );
+
   const data = await res.json();
-  return { res, data };
-}
-
-function extractText(data: any): string | null {
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-}
-
-// In precedenza qualsiasi errore (chiave mancante, modello non valido,
-// contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
-// ignorato in silenzio restituendo una stringa vuota: gli articoli
-// venivano pubblicati comunque, ma completamente vuoti. Ora ogni
-// fallimento genera un errore esplicito che risale fino alla risposta
-// dell'endpoint cron.
-export async function askGemini(
-  prompt: string,
-  { retryOn429 = true }: AskGeminiOptions = {},
-  model: string = PRIMARY_MODEL,
-  isRetry = false
-): Promise<string> {
-  const { res, data } = await callGemini(prompt, model);
 
   if (!res.ok) {
     const message: string = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
-    // 429 = quota superata; 503/"high demand" = modello temporaneamente
-    // sovraccarico lato Google. In entrambi i casi ritentiamo UNA volta,
-    // passando al modello di riserva invece di ripetere sulla stessa
-    // quota (probabilmente ancora esaurita subito dopo).
     const isRateLimit = res.status === 429;
     const isOverloaded = res.status === 503 || /overload|high demand/i.test(message);
     if ((isRateLimit || isOverloaded) && retryOn429 && !isRetry) {
       const match = message.match(/retry in ([\d.]+)s/i);
-      const waitSeconds = isOverloaded ? 8 : match ? Math.min(15, parseFloat(match[1]) + 2) : 15;
+      const waitSeconds = match ? Math.min(45, parseFloat(match[1]) + 3) : isOverloaded ? 8 : 20;
       await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
-      const fallbackModel = model === PRIMARY_MODEL ? FALLBACK_MODEL : model;
-      return askGemini(prompt, { retryOn429 }, fallbackModel, true);
+      return askGemini(prompt, { retryOn429 }, true);
     }
-    throw new Error(`Chiamata Gemini fallita (modello ${model}): ${message}`);
+    throw new Error(`Chiamata Gemini fallita: ${message}`);
   }
 
   const blockReason = data?.promptFeedback?.blockReason;
@@ -81,7 +68,7 @@ export async function askGemini(
     throw new Error(`Contenuto bloccato dai filtri Gemini: ${blockReason}`);
   }
 
-  const text = extractText(data);
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
     throw new Error(`Risposta Gemini senza contenuto testuale: ${JSON.stringify(data).slice(0, 300)}`);
   }
