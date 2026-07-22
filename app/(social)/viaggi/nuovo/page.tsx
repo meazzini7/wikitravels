@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { doc, increment, writeBatch } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { getFirebaseDb, getFirebaseStorage } from "@/lib/firebase-client";
+import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { generateId } from "@/lib/id";
 import {
@@ -140,23 +139,6 @@ export default function NuovoViaggioPage() {
       setCover(data.image);
     } catch {
       setError("Non sono riuscito a generare la copertina. Riprova.");
-    } finally {
-      setCoverLoading(false);
-    }
-  }
-
-  async function uploadOwnCover(file: File) {
-    if (!user) return;
-    setCoverLoading(true);
-    setError(null);
-    try {
-      const storage = getFirebaseStorage();
-      const fileRef = ref(storage, `trips/${user.uid}/${tripId}/cover-upload-${Date.now()}.jpg`);
-      await uploadBytes(fileRef, file, { contentType: file.type });
-      const url = await getDownloadURL(fileRef);
-      setCover({ url, author: "", link: "" });
-    } catch {
-      setError("Non sono riuscito a caricare la foto. Riprova.");
     } finally {
       setCoverLoading(false);
     }
@@ -488,23 +470,6 @@ export default function NuovoViaggioPage() {
           >
             {coverLoading ? "✨ Generazione in corso..." : cover ? "🔄 Rigenera copertina" : "✨ Genera copertina con AI"}
           </button>
-          <label
-            className={`tap-scale flex min-h-[48px] cursor-pointer items-center justify-center rounded-2xl border-2 border-lagoon-300 px-4 font-bold text-lagoon-700 ${
-              coverLoading ? "pointer-events-none opacity-40" : ""
-            }`}
-          >
-            📤 Carica una tua foto
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadOwnCover(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
           <div className="flex gap-3">
             <button
               onClick={() => setStep(2)}

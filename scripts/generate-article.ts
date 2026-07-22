@@ -151,16 +151,14 @@ Restituisci SOLO HTML puro (no markdown), con questa struttura:
   const seo = await generateSeoMeta(title, dest.name);
 
   // Copertina
-  const cover = await fetchAndUploadImage(dest.keyword, `articles/${slug}/cover.jpg`);
+  const cover = await fetchAndUploadImage(dest.keyword);
 
   // Immagini interne: sostituisce i placeholder [IMG_...] con <figure>
-  let imgCount = 0;
   const matches = [...content.matchAll(/\[(IMG_LANDMARK|IMG_ACTIVITY):\s*(.+?)\]/gi)];
   for (const m of matches) {
-    imgCount++;
     const keyword = m[2].trim();
     const query = keyword.length < 10 ? `${dest.keyword} ${keyword}` : keyword;
-    const img = await fetchAndUploadImage(query, `articles/${slug}/img${imgCount}.jpg`);
+    const img = await fetchAndUploadImage(query);
     const replacement = img
       ? `<figure><img src="${img.url}" alt="${img.alt}" loading="lazy" />
          <figcaption>Foto di <a href="${img.link}" target="_blank">${img.author}</a> su Unsplash</figcaption></figure>`
