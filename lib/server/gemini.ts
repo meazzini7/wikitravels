@@ -6,7 +6,12 @@ import "server-only";
 // venivano pubblicati comunque, ma completamente vuoti. Ora ogni
 // fallimento genera un errore esplicito che risale fino alla risposta
 // dell'endpoint cron.
-export async function askGemini(prompt: string): Promise<string> {
+//
+// Il piano gratuito di Gemini limita le richieste al minuto: in caso di
+// 429 riproviamo una sola volta, aspettando il tempo suggerito da Google
+// nel messaggio d'errore (o un default), per non far fallire una
+// generazione solo per un rate limit transitorio.
+export async function askGemini(prompt: string, isRetry = false): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("GEMINI_API_KEY non impostata");
@@ -33,7 +38,13 @@ export async function askGemini(prompt: string): Promise<string> {
   const data = await res.json();
 
   if (!res.ok) {
-    const message = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
+    const message: string = data?.error?.message ?? `Gemini ha risposto con status ${res.status}`;
+    if (res.status === 429 && !isRetry) {
+      const match = message.match(/retry in ([\d.]+)s/i);
+      const waitSeconds = match ? Math.min(35, parseFloat(match[1]) + 2) : 20;
+      await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+      return askGemini(prompt, true);
+    }
     throw new Error(`Chiamata Gemini fallita: ${message}`);
   }
 
