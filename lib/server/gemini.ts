@@ -8,12 +8,13 @@ interface AskGeminiOptions {
   retryOn429?: boolean;
 }
 
-// Unico modello usato. Un tentativo precedente di "modello di riserva"
-// (gemini-2.0-flash) è stato rimosso: su questo account risulta avere
-// quota gratuita pari a zero (non semplicemente esaurita, proprio non
-// disponibile), quindi ogni retry falliva garantito. Meglio riprovare sullo
-// stesso modello dopo un'attesa che inseguire modelli indisponibili.
-const MODEL = "gemini-2.5-flash";
+// Il limite gratuito di gemini-2.5-flash è per RPD (richieste AL GIORNO,
+// non al minuto): 20/giorno, esaurito dai test ripetuti durante lo
+// sviluppo (confermato dalla pagina "Limite di frequenza" di Google AI
+// Studio). gemini-2.5-flash-lite ha una quota giornaliera separata e
+// intatta sullo stesso account: la usiamo finché quella di flash non si
+// resetta (a mezzanotte ora del Pacifico).
+const MODEL = "gemini-2.5-flash-lite";
 
 // In precedenza qualsiasi errore (chiave mancante, modello non valido,
 // contenuto bloccato dai filtri di sicurezza, quota esaurita...) veniva
