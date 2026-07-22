@@ -4,13 +4,26 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
-// Due modi per passare le credenziali, per evitare il classico problema
-// della private key PEM che perde gli "a capo" quando incollata come env
-// var separata: FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64 (l'intero JSON del
-// service account, codificato in base64: nessun carattere speciale da
-// preservare) ha la precedenza se presente; altrimenti si usano le tre
-// variabili separate come prima.
+// Tre modi per passare le credenziali, dal più al meno semplice da
+// incollare senza errori:
+// 1. FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: l'intero file JSON del service
+//    account incollato così com'è (nessuna trasformazione richiesta).
+// 2. FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64: lo stesso JSON codificato in
+//    base64 (un unico blocco senza ritorni a capo, utile se il contesto
+//    di deploy non gestisce bene i valori multilinea).
+// 3. FIREBASE_ADMIN_CLIENT_EMAIL + FIREBASE_ADMIN_PRIVATE_KEY separate
+//    (richiede di preservare a mano gli "\n" nella chiave, più fragile).
 function loadCredential(): ServiceAccount {
+  const rawJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON;
+  if (rawJson) {
+    const parsed = JSON.parse(rawJson);
+    return {
+      projectId: parsed.project_id,
+      clientEmail: parsed.client_email,
+      privateKey: parsed.private_key,
+    };
+  }
+
   const base64Json = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64;
   if (base64Json) {
     const parsed = JSON.parse(Buffer.from(base64Json, "base64").toString("utf-8"));
@@ -20,6 +33,7 @@ function loadCredential(): ServiceAccount {
       privateKey: parsed.private_key,
     };
   }
+
   return {
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
