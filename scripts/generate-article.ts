@@ -211,6 +211,13 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
     );
   }
 
+  // Nonostante l'istruzione di usare SOLO i segnaposto [IMG_...], a volte il
+  // modello inventa comunque un proprio tag <img>/<figure> con un src finto
+  // (es. "eiffel-tower.jpg"): risultato, un'icona di immagine rotta in
+  // pagina. Li rimuoviamo prima di inserire le nostre immagini reali, così
+  // l'unico <img> possibile è quello con URL Unsplash valido inserito sotto.
+  content = content.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/<img[^>]*>/gi, "");
+
   const { scores, seo } = await generateMetadata(title, dest.name, vibe);
 
   // Copertina
