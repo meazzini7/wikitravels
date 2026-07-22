@@ -66,7 +66,11 @@ export default function TripMap({ stops, onMapClick, className }: TripMapProps) 
       center={center}
       zoom={stops.length ? 6 : 4}
       scrollWheelZoom
-      className={className ?? "h-80 w-full rounded-lg"}
+      // "relative z-0": senza uno z-index esplicito, i pannelli interni di
+      // Leaflet (fino a z-index 700) non restano confinati nella stacking
+      // context della mappa e "bucano" sopra ad altri elementi posizionati
+      // della pagina, come il menu a tendina dei risultati di PlaceSearch.
+      className={`relative z-0 ${className ?? "h-80 w-full rounded-lg"}`}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

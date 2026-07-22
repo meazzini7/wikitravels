@@ -11,7 +11,7 @@ export function tripCountsByCountry(trips: Trip[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const trip of trips) {
     const alpha3Codes = new Set(
-      trip.countryCodes.map((code) => alpha2ToAlpha3(code)).filter((c): c is string => !!c)
+      (trip.countryCodes ?? []).map((code) => alpha2ToAlpha3(code)).filter((c): c is string => !!c)
     );
     for (const code of alpha3Codes) {
       counts[code] = (counts[code] ?? 0) + 1;
@@ -25,7 +25,7 @@ export function tripCountsByCountry(trips: Trip[]): Record<string, number> {
 export function visitedCountriesMap(trips: Trip[]): Record<string, number> {
   const visited: Record<string, number> = {};
   for (const trip of trips) {
-    for (const code of trip.countryCodes) {
+    for (const code of trip.countryCodes ?? []) {
       const a3 = alpha2ToAlpha3(code);
       if (a3) visited[a3] = 1;
     }
