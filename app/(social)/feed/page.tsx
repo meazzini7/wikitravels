@@ -40,7 +40,7 @@ export default function FeedPage() {
     return trips
       .map((trip) => ({
         trip,
-        matchScore: computeMatchScore(viewerInterests, trip.authorInterests ?? defaultInterestScores()),
+        matchScore: computeMatchScore(viewerInterests, trip.scores ?? trip.authorInterests ?? defaultInterestScores()),
       }))
       .sort((a, b) => b.matchScore - a.matchScore);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, increment, orderBy, query, writeBatch } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { exportTripPdf } from "@/lib/export-trip-pdf";
 import { TRIP_TYPE_LABELS } from "@/lib/trip-types";
+import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import TripParticipants from "@/components/TripParticipants";
 import type { Trip, TripStop } from "@/lib/types";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), {
@@ -20,11 +22,13 @@ const TripMap = dynamic(() => import("@/components/TripMap"), {
 
 export default function TripDetailPage() {
   const params = useParams<{ tripId: string }>();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [stops, setStops] = useState<TripStop[]>([]);
   const [loadingTrip, setLoadingTrip] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -71,6 +75,30 @@ export default function TripDetailPage() {
   }
 
   const isOwner = user?.uid === trip.authorId;
+
+  async function deleteTrip() {
+    if (!user || !trip) return;
+    if (!window.confirm("Eliminare definitivamente questo viaggio? L'azione non si può annullare.")) return;
+    setDeleting(true);
+    try {
+      const db = getFirebaseDb();
+      const batch = writeBatch(db);
+      const stopsSnap = await getDocs(collection(db, "trips", trip.id, "stops"));
+      stopsSnap.docs.forEach((d) => batch.delete(d.ref));
+      const participantsSnap = await getDocs(collection(db, "trips", trip.id, "participants"));
+      participantsSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, "trips", trip.id));
+      batch.update(doc(db, "users", user.uid), {
+        "stats.tripsCount": increment(-1),
+        "stats.totalDistanceKm": increment(-trip.totalDistanceKm),
+      });
+      await batch.commit();
+      router.push("/profilo");
+    } catch (err) {
+      console.error("Impossibile eliminare il viaggio:", err);
+      setDeleting(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
@@ -121,8 +149,36 @@ export default function TripDetailPage() {
         </p>
       )}
 
-      {trip.description && (
-        <p className="card-surface mb-6 p-4 text-gray-700">{trip.description}</p>
+      {trip.scores && (
+        <ul className="mb-4 flex flex-wrap gap-1.5">
+          {topInterests(trip.scores, 3).map((key) => (
+            <li
+              key={key}
+              className="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700"
+            >
+              <span aria-hidden>{INTEREST_ICONS[key]}</span>
+              {INTEREST_LABELS[key]}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {isOwner && (
+        <div className="mb-6 flex gap-3">
+          <Link
+            href={`/viaggi/nuovo?edit=${trip.id}`}
+            className="tap-scale flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 font-bold text-gray-700 hover:bg-gray-50"
+          >
+            ✏️ Modifica
+          </Link>
+          <button
+            onClick={deleteTrip}
+            disabled={deleting}
+            className="tap-scale flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-red-200 font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            {deleting ? "Eliminazione..." : "🗑️ Elimina"}
+          </button>
+        </div>
       )}
 
       {user && (
@@ -142,21 +198,38 @@ export default function TripDetailPage() {
           />
 
           <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">📍 Tappe</h2>
-          <ol className="flex flex-col gap-3">
+          <ol className="mb-6 flex flex-col gap-3">
             {stops.map((stop, i) => (
-              <li key={stop.id} className="card-surface flex items-center gap-3 p-3">
+              <li key={stop.id} className="card-surface flex items-start gap-3 p-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 font-heading font-bold text-brand-700">
                   {i + 1}
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-bold text-gray-900">{stop.name}</p>
                   <p className="text-sm text-gray-500">
                     {stop.startDate} → {stop.endDate}
                   </p>
+                  {stop.poiRatings && stop.poiRatings.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {[...stop.poiRatings]
+                        .sort((a, b) => b.rating - a.rating)
+                        .map((poi) => (
+                          <li
+                            key={poi.name}
+                            className="rounded-full bg-lagoon-50 px-2 py-0.5 text-[11px] font-bold text-lagoon-700"
+                          >
+                            {poi.name} · {poi.rating}/10
+                          </li>
+                        ))}
+                    </ul>
+                  )}
                 </div>
               </li>
             ))}
           </ol>
+
+          <TripParticipants tripId={trip.id} tripTitle={trip.title} isOwner={isOwner} />
+
           {isOwner && <p className="mt-6 text-center text-xs text-gray-400">Sei il proprietario di questo viaggio.</p>}
         </>
       ) : (

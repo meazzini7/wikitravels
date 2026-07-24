@@ -1,6 +1,20 @@
 "use client";
 
-import { addDoc, collection, doc, getDocs, increment, query, where, writeBatch } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  increment,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { getFirebaseDb } from "./firebase-client";
 import { destinationMatchKeys } from "./dream-destinations";
 import type { UserProfile } from "./types";
@@ -120,4 +134,63 @@ export async function notifyDreamDestinationMatches(
         });
       })
   );
+}
+
+// Ricerca "a partire da" sul nome (prefisso): Firestore non fa ricerca
+// full-text, ma un range su displayName è sufficiente per trovare un
+// amico da invitare digitando l'inizio del suo nome.
+export async function searchUsersByName(prefix: string): Promise<UserProfile[]> {
+  const trimmed = prefix.trim();
+  if (trimmed.length < 2) return [];
+  const db = getFirebaseDb();
+  const snap = await getDocs(
+    query(
+      collection(db, "users"),
+      orderBy("displayName"),
+      where("displayName", ">=", trimmed),
+      where("displayName", "<=", `${trimmed}`),
+      limit(8)
+    )
+  );
+  return snap.docs.map((d) => d.data() as UserProfile);
+}
+
+// Invita un utente a partecipare a un viaggio: crea il documento
+// "invited" nella subcollection e notifica l'invitato.
+export async function inviteTripParticipant(
+  tripId: string,
+  tripTitle: string,
+  inviter: { uid: string; displayName: string; photoURL: string | null },
+  target: { uid: string; displayName: string; photoURL: string | null }
+) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, "trips", tripId, "participants", target.uid), {
+    uid: target.uid,
+    displayName: target.displayName,
+    photoURL: target.photoURL,
+    status: "invited",
+    invitedBy: inviter.uid,
+    createdAt: Date.now(),
+  });
+  await addDoc(collection(db, "users", target.uid, "notifications"), {
+    type: "trip_invite",
+    fromUid: inviter.uid,
+    fromDisplayName: inviter.displayName,
+    fromPhotoURL: inviter.photoURL,
+    tripId,
+    tripTitle,
+    articleSlug: null,
+    articleTitle: null,
+    destinationName: null,
+    createdAt: Date.now(),
+    read: false,
+  });
+}
+
+export async function acceptTripInvite(tripId: string, uid: string) {
+  await updateDoc(doc(getFirebaseDb(), "trips", tripId, "participants", uid), { status: "accepted" });
+}
+
+export async function declineTripInvite(tripId: string, uid: string) {
+  await deleteDoc(doc(getFirebaseDb(), "trips", tripId, "participants", uid));
 }

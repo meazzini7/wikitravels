@@ -18,12 +18,6 @@ export function exportTripPdf(trip: Trip, stops: TripStop[]) {
   doc.text(`Distanza totale: ${trip.totalDistanceKm.toFixed(0)} km`, marginX, y);
   y += 10;
 
-  if (trip.description) {
-    const lines = doc.splitTextToSize(trip.description, 180);
-    doc.text(lines, marginX, y);
-    y += lines.length * 6 + 6;
-  }
-
   doc.setFontSize(14);
   doc.text("Tappe", marginX, y);
   y += 8;
@@ -37,7 +31,18 @@ export function exportTripPdf(trip: Trip, stops: TripStop[]) {
     doc.text(`${i + 1}. ${stop.name}`, marginX, y);
     y += 6;
     doc.text(`   ${stop.startDate} - ${stop.endDate}`, marginX, y);
-    y += 8;
+    y += 6;
+    if (stop.poiRatings && stop.poiRatings.length > 0) {
+      if (y > 275) {
+        doc.addPage();
+        y = 20;
+      }
+      const poiLine = stop.poiRatings.map((p) => `${p.name} (${p.rating}/10)`).join(", ");
+      const poiLines = doc.splitTextToSize(`   Da vedere: ${poiLine}`, 180);
+      doc.text(poiLines, marginX, y);
+      y += poiLines.length * 6;
+    }
+    y += 4;
   });
 
   const filename = `${

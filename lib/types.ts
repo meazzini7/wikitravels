@@ -42,6 +42,11 @@ export interface UserProfile {
   dreamDestinationKeys: string[];
 }
 
+export interface PoiRating {
+  name: string;
+  rating: number;
+}
+
 export interface TripStop {
   id: string;
   authorId: string;
@@ -52,6 +57,19 @@ export interface TripStop {
   order: number;
   startDate: string;
   endDate: string;
+  // Punti di interesse suggeriti per questo luogo (via AI, in cache per
+  // nome luogo) votati 0-10 da chi crea il viaggio, al posto di una
+  // descrizione libera.
+  poiRatings?: PoiRating[];
+}
+
+export interface TripParticipant {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+  status: "invited" | "accepted";
+  invitedBy: string;
+  createdAt: number;
 }
 
 export interface Trip {
@@ -60,8 +78,12 @@ export interface Trip {
   authorDisplayName: string;
   authorPhotoURL: string | null;
   authorInterests: InterestScores;
+  // Interessi specifici DI QUESTO VIAGGIO (non solo quelli generali
+  // dell'autore): un viaggiatore può fare sia un giro culturale rilassato
+  // che un'avventura estrema, e i due viaggi non devono avere lo stesso
+  // punteggio solo perché hanno lo stesso autore.
+  scores: InterestScores;
   title: string;
-  description: string;
   startDate: string;
   endDate: string;
   coverImageUrl: string | null;
@@ -79,7 +101,7 @@ export interface Trip {
 
 export interface Notification {
   id: string;
-  type: "follow" | "trip" | "dream_trip" | "dream_article";
+  type: "follow" | "trip" | "dream_trip" | "dream_article" | "trip_invite";
   fromUid: string | null;
   fromDisplayName: string | null;
   fromPhotoURL: string | null;

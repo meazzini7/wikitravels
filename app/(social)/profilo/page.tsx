@@ -118,10 +118,16 @@ export default function ProfiloPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-6 sm:py-8">
-      <div className="relative mb-14 overflow-hidden rounded-4xl bg-gradient-to-br from-brand-600 via-brand-500 to-lagoon-500 px-6 pb-14 pt-8 text-center text-white shadow-pop">
-        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
-        <p className="font-heading text-xl font-bold">{profile.displayName}</p>
-        {profile.bio && <p className="mt-1 text-sm text-white/85">{profile.bio}</p>}
+      <div className="relative mb-14">
+        {/* L'avatar (sotto) deve "sporgere" fuori dal bordo inferiore della
+            card: overflow-hidden va tenuto solo su questo div interno (per
+            ritagliare il cerchio decorativo), non sul contenitore esterno,
+            altrimenti taglierebbe via anche l'avatar. */}
+        <div className="relative overflow-hidden rounded-4xl bg-gradient-to-br from-brand-600 via-brand-500 to-lagoon-500 px-6 pb-14 pt-8 text-center text-white shadow-pop">
+          <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+          <p className="font-heading text-xl font-bold">{profile.displayName}</p>
+          {profile.bio && <p className="mt-1 text-sm text-white/85">{profile.bio}</p>}
+        </div>
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
           <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-brand-50 shadow-lg">
             {profile.photoURL ? (

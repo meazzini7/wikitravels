@@ -75,13 +75,19 @@ export default function NotifichePage() {
         <ul className="flex flex-col gap-2">
           {items.map((n) => {
             const href =
-              n.type === "trip" || n.type === "dream_trip"
+              n.type === "trip" || n.type === "dream_trip" || n.type === "trip_invite"
                 ? `/viaggi/${n.tripId}`
                 : n.type === "dream_article"
                   ? `/enciclopedia/${n.articleSlug}`
                   : `/utenti/${n.fromUid}`;
             const icon =
-              n.type === "trip" || n.type === "dream_trip" ? "🧳" : n.type === "dream_article" ? "🌟" : "👤";
+              n.type === "trip" || n.type === "dream_trip"
+                ? "🧳"
+                : n.type === "trip_invite"
+                  ? "✉️"
+                  : n.type === "dream_article"
+                    ? "🌟"
+                    : "👤";
             return (
               <li key={n.id}>
                 <Link
@@ -110,6 +116,11 @@ export default function NotifichePage() {
                         Nuovo articolo su una tua meta dei sogni
                         {n.destinationName ? ` (${n.destinationName})` : ""}
                         {n.articleTitle ? `: ${n.articleTitle}` : ""}
+                      </>
+                    ) : n.type === "trip_invite" ? (
+                      <>
+                        <strong>{n.fromDisplayName}</strong> ti ha invitato al viaggio
+                        {n.tripTitle ? `: ${n.tripTitle}` : ""}
                       </>
                     ) : (
                       <>

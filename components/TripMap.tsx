@@ -72,9 +72,15 @@ export default function TripMap({ stops, onMapClick, className }: TripMapProps) 
       // della pagina, come il menu a tendina dei risultati di PlaceSearch.
       className={`relative z-0 ${className ?? "h-80 w-full rounded-lg"}`}
     >
+      {/* Le tile OSM standard mostrano i nomi dei luoghi nello script/lingua
+          locale (es. città giapponesi in giapponese): CARTO Voyager usa
+          etichette in caratteri latini in tutto il mondo, gratis e senza
+          bisogno di una chiave API. */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        subdomains="abcd"
+        maxZoom={20}
       />
       <ClickHandler onMapClick={onMapClick} />
       <FitBounds stops={stops} />
