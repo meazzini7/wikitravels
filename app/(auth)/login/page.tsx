@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { GoogleAuthProvider, getRedirectResult, signInWithEmailAndPassword, signInWithRedirect } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+} from "firebase/auth";
 import Link from "next/link";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { ensureUserProfile } from "@/lib/ensure-user-profile";
@@ -25,10 +31,10 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>();
 
-  // signInWithPopup fallisce spesso su mobile (Safari/iOS blocca o
-  // interrompe i popup cross-domain durante il round-trip OAuth): il
-  // redirect naviga l'intera pagina verso Google e torna, molto più
-  // affidabile su telefono. Il risultato va poi recuperato qui al rientro.
+  // Completa l'accesso se si è tornati qui da un redirect Google (vedi
+  // onGoogleLogin: il redirect è solo un fallback per quando il popup è
+  // bloccato, quindi in pratica questo effect nella maggior parte dei casi
+  // non trova nulla e non fa niente).
   useEffect(() => {
     getRedirectResult(getFirebaseAuth())
       .then(async (cred) => {
@@ -50,11 +56,31 @@ export default function LoginPage() {
     }
   };
 
+  // Il popup è il metodo principale: a differenza del redirect, non dipende
+  // dal fatto che il browser condivida lo storage tra questo dominio e
+  // l'authDomain di Firebase durante il round-trip (cosa che i browser
+  // moderni bloccano sempre più spesso, causando un rientro "silenzioso"
+  // senza login né errore). Il redirect resta come ripiego solo per i casi
+  // in cui il popup viene davvero bloccato o non è supportato (es. alcuni
+  // browser in-app).
   const onGoogleLogin = async () => {
     setError(null);
+    const auth = getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
     try {
-      await signInWithRedirect(getFirebaseAuth(), new GoogleAuthProvider());
+      const cred = await signInWithPopup(auth, provider);
+      const profile = await ensureUserProfile(cred.user);
+      router.push(profile.onboardingCompleted ? "/" : "/onboarding");
     } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr) {
+          setError(mapAuthError(redirectErr));
+        }
+        return;
+      }
       setError(mapAuthError(err));
     }
   };
