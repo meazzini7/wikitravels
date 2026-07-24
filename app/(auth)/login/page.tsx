@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, getRedirectResult, signInWithEmailAndPassword, signInWithRedirect } from "firebase/auth";
 import Link from "next/link";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { ensureUserProfile } from "@/lib/ensure-user-profile";
 import { mapAuthError } from "@/lib/auth-errors";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import GoogleIcon from "@/components/GoogleIcon";
 
 interface FormValues {
   email: string;
@@ -24,6 +25,20 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>();
 
+  // signInWithPopup fallisce spesso su mobile (Safari/iOS blocca o
+  // interrompe i popup cross-domain durante il round-trip OAuth): il
+  // redirect naviga l'intera pagina verso Google e torna, molto più
+  // affidabile su telefono. Il risultato va poi recuperato qui al rientro.
+  useEffect(() => {
+    getRedirectResult(getFirebaseAuth())
+      .then(async (cred) => {
+        if (!cred) return;
+        const profile = await ensureUserProfile(cred.user);
+        router.push(profile.onboardingCompleted ? "/" : "/onboarding");
+      })
+      .catch((err) => setError(mapAuthError(err)));
+  }, [router]);
+
   const onSubmit = async (values: FormValues) => {
     setError(null);
     try {
@@ -38,9 +53,7 @@ export default function LoginPage() {
   const onGoogleLogin = async () => {
     setError(null);
     try {
-      const cred = await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
-      const profile = await ensureUserProfile(cred.user);
-      router.push(profile.onboardingCompleted ? "/" : "/onboarding");
+      await signInWithRedirect(getFirebaseAuth(), new GoogleAuthProvider());
     } catch (err) {
       setError(mapAuthError(err));
     }
@@ -58,7 +71,8 @@ export default function LoginPage() {
         onClick={onGoogleLogin}
         className="tap-scale flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-700 hover:bg-gray-50"
       >
-        🔵 Continua con Google
+        <GoogleIcon className="h-5 w-5" />
+        Continua con Google
       </button>
 
       <div className="my-5 flex items-center gap-2 text-xs font-semibold text-gray-400">
