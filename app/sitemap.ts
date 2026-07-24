@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getSiteUrl } from "@/lib/site-url";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = getSiteUrl();
 
 function toDate(value: unknown): Date | undefined {
   if (value instanceof Date) return value;

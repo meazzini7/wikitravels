@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { searchPlaces, type GeocodeResult } from "@/lib/geocoding";
+import FloatingPanel from "@/components/ui/FloatingPanel";
 
 interface PlaceSearchProps {
   placeholder?: string;
@@ -17,6 +18,7 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -82,7 +84,7 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
   }
 
   return (
-    <div className={`relative ${className ?? ""}`}>
+    <div ref={wrapperRef} className={`relative ${className ?? ""}`}>
       <input
         value={text}
         onChange={(e) => {
@@ -96,8 +98,8 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
       />
       {searching && <p className="mt-1 text-xs text-gray-400">Ricerca in corso...</p>}
       {!searching && error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-      {open && results.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+      <FloatingPanel anchorRef={wrapperRef} open={open && results.length > 0}>
+        <ul className="mt-1 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {results.map((r, i) => (
             <li key={`${r.lat}-${r.lng}-${i}`}>
               <button
@@ -110,7 +112,7 @@ export default function PlaceSearch({ placeholder, initialValue, onSelect, class
             </li>
           ))}
         </ul>
-      )}
+      </FloatingPanel>
     </div>
   );
 }

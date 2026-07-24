@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { getLocalizedArticle } from "@/lib/server/get-localized-article";
+import { getSiteUrl } from "@/lib/site-url";
 import { getServerLocale } from "@/lib/i18n/server-locale";
 import { getDictionary } from "@/lib/i18n/dictionary";
 import ShareButtons from "@/components/ShareButtons";
@@ -93,7 +94,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   const relatedArticles = await getRelatedArticles(article.slug);
   const publishedDate = toIsoDate(article.createdAt);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const siteUrl = getSiteUrl();
   const articleUrl = `${siteUrl}/enciclopedia/${article.slug}`;
 
   const jsonLd = {

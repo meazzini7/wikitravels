@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import OnboardingGuard from "@/components/OnboardingGuard";
+import { getSiteUrl } from "@/lib/site-url";
 
 const heading = Baloo_2({
   subsets: ["latin"],
@@ -24,7 +25,7 @@ const body = Nunito({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = getSiteUrl();
 
 const description =
   "WikiTravels è il portale social per viaggiatori: organizza viaggi, connettiti con altri esploratori e scopri la nostra enciclopedia di destinazioni.";

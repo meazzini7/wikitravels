@@ -281,7 +281,7 @@ export default function ProfiloPage() {
 
       <div className="card-surface mt-6 p-4 sm:p-5">
         <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">📣 Invita altri viaggiatori</h2>
-        <InviteShare uid={user.uid} />
+        <InviteShare uid={user.uid} code={profile.referralCode ?? null} />
       </div>
     </main>
   );
