@@ -8,6 +8,7 @@ import { collection, getCountFromServer, getDocs, limit, orderBy, query, where }
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { tripCountsByCountry } from "@/lib/world-stats";
+import { useTranslations } from "@/lib/i18n/i18n-context";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import EmptyState from "@/components/ui/EmptyState";
 import type { Trip } from "@/lib/types";
@@ -17,14 +18,15 @@ const WorldMap = dynamic(() => import("@/components/WorldMap"), {
   loading: () => <div className="h-72 w-full animate-pulse rounded-2xl bg-gray-100" />,
 });
 
-const EXPLORE_CARDS = [
-  { href: "/feed", icon: "🧭", title: "Feed", desc: "Viaggi in linea con i tuoi gusti" },
-  { href: "/classifica", icon: "🏆", title: "Classifica", desc: "Chi ha percorso più km" },
-  { href: "/enciclopedia", icon: "📖", title: "Enciclopedia", desc: "Guide di destinazione" },
-];
-
 export default function HomePageContent() {
   const { user, profile, loading } = useAuth();
+  const t = useTranslations("home");
+
+  const EXPLORE_CARDS = [
+    { href: "/feed", icon: "🧭", title: t("exploreFeedTitle"), desc: t("exploreFeedDesc") },
+    { href: "/classifica", icon: "🏆", title: t("exploreLeaderboardTitle"), desc: t("exploreLeaderboardDesc") },
+    { href: "/enciclopedia", icon: "📖", title: t("exploreEncyclopediaTitle"), desc: t("exploreEncyclopediaDesc") },
+  ];
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loadingTrips, setLoadingTrips] = useState(true);
   const [travelerCount, setTravelerCount] = useState<number | null>(null);
@@ -65,13 +67,10 @@ export default function HomePageContent() {
           <h1 className="font-heading text-3xl font-extrabold sm:text-5xl">WikiTravels</h1>
           {!loading && user ? (
             <p className="max-w-xl text-base text-white/90 sm:text-lg">
-              Bentornato, {profile?.displayName ?? user.email}! Ecco cosa succede nel mondo di WikiTravels oggi.
+              {t("welcomeBack", { name: profile?.displayName ?? user.email ?? "" })}
             </p>
           ) : (
-            <p className="max-w-xl text-base text-white/90 sm:text-lg">
-              Costruisci il tuo prossimo viaggio a bottoni, scopri quelli della community e sfida gli amici a km
-              percorsi. Zero noia, tutto interattivo.
-            </p>
+            <p className="max-w-xl text-base text-white/90 sm:text-lg">{t("heroGuestSubtitle")}</p>
           )}
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
@@ -80,36 +79,36 @@ export default function HomePageContent() {
                 href="/viaggi/nuovo"
                 className="tap-scale flex min-h-[48px] items-center gap-2 rounded-full bg-white px-6 font-heading font-bold text-brand-700 shadow-lg"
               >
-                ✚ Crea un viaggio
+                {t("createTrip")}
               </Link>
             ) : (
               <Link
                 href="/registrati"
                 className="tap-scale flex min-h-[48px] items-center gap-2 rounded-full bg-white px-6 font-heading font-bold text-brand-700 shadow-lg"
               >
-                🚀 Inizia a viaggiare
+                {t("startTraveling")}
               </Link>
             )}
             <Link
               href="/feed"
               className="tap-scale flex min-h-[48px] items-center gap-2 rounded-full border-2 border-white/70 px-6 font-heading font-bold text-white"
             >
-              🧭 Esplora viaggi
+              {t("exploreTrips")}
             </Link>
           </div>
 
           <div className="mt-4 grid w-full max-w-sm grid-cols-3 gap-2 rounded-2xl bg-white/15 p-3 backdrop-blur-sm">
             <div className="text-center">
               <p className="font-heading text-xl font-extrabold">{publicTripCount ?? "—"}</p>
-              <p className="text-[11px] font-semibold text-white/80">Viaggi pubblici</p>
+              <p className="text-[11px] font-semibold text-white/80">{t("statPublicTrips")}</p>
             </div>
             <div className="text-center">
               <p className="font-heading text-xl font-extrabold">{countriesReached || "—"}</p>
-              <p className="text-[11px] font-semibold text-white/80">Nazioni raggiunte</p>
+              <p className="text-[11px] font-semibold text-white/80">{t("statCountriesReached")}</p>
             </div>
             <div className="text-center">
               <p className="font-heading text-xl font-extrabold">{travelerCount ?? "—"}</p>
-              <p className="text-[11px] font-semibold text-white/80">Viaggiatori</p>
+              <p className="text-[11px] font-semibold text-white/80">{t("statTravelers")}</p>
             </div>
           </div>
         </div>
@@ -133,17 +132,17 @@ export default function HomePageContent() {
 
       <section className="mb-8">
         <div className="card-surface p-4 sm:p-6">
-          <h2 className="mb-1 font-heading text-lg font-bold text-gray-900">🗺️ Il mondo di WikiTravels</h2>
-          <p className="mb-3 text-sm text-gray-500">Nazioni colorate in base al numero di viaggi pubblici pubblicati.</p>
+          <h2 className="mb-1 font-heading text-lg font-bold text-gray-900">{t("worldTitle")}</h2>
+          <p className="mb-3 text-sm text-gray-500">{t("worldSubtitle")}</p>
           <WorldMap values={countryCounts} mode="gradient" className="h-72 w-full rounded-2xl" />
         </div>
       </section>
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-heading text-lg font-bold text-gray-900">✨ Viaggi della community</h2>
+          <h2 className="font-heading text-lg font-bold text-gray-900">{t("communityTripsTitle")}</h2>
           <Link href="/feed" className="text-sm font-bold text-brand-700">
-            Vedi tutti →
+            {t("seeAll")}
           </Link>
         </div>
         {loadingTrips ? (
@@ -153,15 +152,12 @@ export default function HomePageContent() {
             ))}
           </div>
         ) : trips.length === 0 ? (
-          <EmptyState
-            title="Nessun viaggio pubblico ancora"
-            description="Sii il primo a pubblicare un'avventura sulla mappa!"
-          >
+          <EmptyState title={t("noTripsTitle")} description={t("noTripsDescription")}>
             <Link
               href={user ? "/viaggi/nuovo" : "/registrati"}
               className="tap-scale mt-2 flex min-h-[44px] items-center rounded-full bg-brand-600 px-5 font-bold text-white shadow-pop"
             >
-              ✚ Crea il primo viaggio
+              {t("createFirstTrip")}
             </Link>
           </EmptyState>
         ) : (
@@ -195,9 +191,9 @@ export default function HomePageContent() {
         {!user && trips.length > 0 && (
           <p className="mt-4 text-center text-sm text-gray-500">
             <Link href="/registrati" className="font-bold text-brand-700 underline">
-              Registrati
+              {t("registerCta")}
             </Link>{" "}
-            per vedere tappe, mappe e dettagli completi di ogni viaggio.
+            {t("registerCtaSuffix")}
           </p>
         )}
       </section>

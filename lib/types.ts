@@ -1,5 +1,6 @@
 import type { InterestScores } from "./interests";
 import type { TripType } from "./trip-types";
+import type { Locale } from "./i18n/config";
 
 export interface UserStats {
   tripsCount: number;
@@ -105,6 +106,13 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+export interface ArticleTranslation {
+  title: string;
+  contentHtml: string;
+  metaTitle: string;
+  metaDescription: string;
+}
+
 export interface Article {
   title: string;
   slug: string;
@@ -119,4 +127,9 @@ export interface Article {
   status: "published" | "draft";
   views: number;
   createdAt: unknown;
+  // Traduzioni generate al volo (on-demand) la prima volta che qualcuno
+  // apre l'articolo in quella lingua, e da quel momento riusate da
+  // Firestore invece di richiamare Gemini a ogni visita. Chiave = codice
+  // lingua (es. "en"), assente per l'italiano (che è il contenuto principale).
+  translations?: Partial<Record<Locale, ArticleTranslation>>;
 }

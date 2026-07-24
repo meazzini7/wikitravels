@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { computeMatchScore } from "@/lib/travel-utils";
 import { INTEREST_ICONS, topInterests } from "@/lib/interests";
 import type { InterestScores } from "@/lib/interests";
+import { useTranslations } from "@/lib/i18n/i18n-context";
 import FlamingoMascot from "@/components/FlamingoMascot";
 
 export interface RecommendableArticle {
@@ -29,6 +30,7 @@ const MIN_MATCH_PERCENT = 55;
 // semplice ordine cronologico uguale per tutti.
 export default function RecommendedArticles({ articles }: RecommendedArticlesProps) {
   const { profile } = useAuth();
+  const t = useTranslations("enciclopedia");
 
   const recommended = useMemo(() => {
     if (!profile) return [];
@@ -43,7 +45,7 @@ export default function RecommendedArticles({ articles }: RecommendedArticlesPro
 
   return (
     <div className="mb-8">
-      <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">🎯 Consigliati per te</h2>
+      <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">{t("recommendedTitle")}</h2>
       <ul className="flex gap-3 overflow-x-auto pb-1">
         {recommended.map(({ article, score }) => (
           <li key={article.slug} className="w-40 shrink-0">
