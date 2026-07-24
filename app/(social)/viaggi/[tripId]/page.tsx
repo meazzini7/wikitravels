@@ -8,7 +8,6 @@ import Image from "next/image";
 import { collection, doc, getDoc, getDocs, increment, orderBy, query, writeBatch } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
-import { exportTripPdf } from "@/lib/export-trip-pdf";
 import { TRIP_TYPE_LABELS } from "@/lib/trip-types";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import FlamingoMascot from "@/components/FlamingoMascot";
@@ -29,6 +28,22 @@ export default function TripDetailPage() {
   const [loadingTrip, setLoadingTrip] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  // jsPDF pesa parecchio (è la libreria più pesante di tutta l'app): la
+  // si carica solo quando l'utente tocca davvero "Esporta PDF", invece di
+  // scaricarla per ogni visita a una pagina di viaggio, quando la stragrande
+  // maggioranza di chi la visita non esporta mai nulla.
+  async function handleExportPdf() {
+    if (!trip) return;
+    setExportingPdf(true);
+    try {
+      const { exportTripPdf } = await import("@/lib/export-trip-pdf");
+      exportTripPdf(trip, stops);
+    } finally {
+      setExportingPdf(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -183,10 +198,11 @@ export default function TripDetailPage() {
 
       {user && (
         <button
-          onClick={() => exportTripPdf(trip, stops)}
-          className="tap-scale mb-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-300 font-bold text-brand-700 hover:bg-brand-50"
+          onClick={handleExportPdf}
+          disabled={exportingPdf}
+          className="tap-scale mb-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-300 font-bold text-brand-700 hover:bg-brand-50 disabled:opacity-60"
         >
-          📄 Esporta PDF
+          {exportingPdf ? "Preparazione..." : "📄 Esporta PDF"}
         </button>
       )}
 
