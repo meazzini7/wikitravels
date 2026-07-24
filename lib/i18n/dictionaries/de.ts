@@ -32,6 +32,7 @@ const de: Dictionary = {
     leaderboard: "Rangliste",
     trips: "Reisen",
     createTrip: "Neue Reise erstellen",
+    profile: "Profil",
   },
   language: {
     label: "Sprache",

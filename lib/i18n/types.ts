@@ -34,6 +34,7 @@ export interface Dictionary {
     leaderboard: string;
     trips: string;
     createTrip: string;
+    profile: string;
   };
   language: {
     label: string;

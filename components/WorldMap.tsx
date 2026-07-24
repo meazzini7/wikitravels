@@ -69,6 +69,15 @@ export default function WorldMap({ values, mode = "gradient", className }: World
       zoom={1}
       minZoom={1}
       scrollWheelZoom={false}
+      // È una mappa decorativa (mostra sempre il mondo intero, zoom
+      // minimo=massimo): senza bloccare il trascinamento, su mobile un dito
+      // che scorre la pagina verticalmente veniva "catturato" dalla mappa
+      // spostandola invece di far scorrere la pagina.
+      dragging={false}
+      touchZoom={false}
+      doubleClickZoom={false}
+      boxZoom={false}
+      keyboard={false}
       className={className ?? "h-80 w-full rounded-lg"}
       attributionControl={false}
     >

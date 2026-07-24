@@ -7,11 +7,14 @@ import Image from "next/image";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
-import { unlockedBadges } from "@/lib/badges";
+import type { BadgeContext } from "@/lib/badges";
 import { computeMatchScore } from "@/lib/travel-utils";
+import { checkMutualFollow } from "@/lib/social";
+import { fetchVisitedWorldStats, type VisitedWorldStats } from "@/lib/world-stats";
 import { INTEREST_ICONS, INTEREST_KEYS, INTEREST_LABELS } from "@/lib/interests";
 import FollowButton from "@/components/FollowButton";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import BadgesShowcase from "@/components/BadgesShowcase";
 import StatTile from "@/components/ui/StatTile";
 import EmptyState from "@/components/ui/EmptyState";
 import MatchGauge from "@/components/ui/MatchGauge";
@@ -22,7 +25,9 @@ export default function PublicProfilePage() {
   const { user, profile: viewerProfile } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [worldStats, setWorldStats] = useState<VisitedWorldStats>({ citiesCount: 0, countriesCount: 0 });
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [isFriend, setIsFriend] = useState(false);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -40,13 +45,27 @@ export default function PublicProfilePage() {
             orderBy("createdAt", "desc")
           )
         );
-        setTrips(tripsSnap.docs.map((d) => d.data() as Trip));
+        const publicTrips = tripsSnap.docs.map((d) => d.data() as Trip);
+        setTrips(publicTrips);
+        fetchVisitedWorldStats(publicTrips.map((t) => t.id))
+          .then(setWorldStats)
+          .catch((err) => console.error("Impossibile calcolare il mondo visitato:", err));
       } catch (err) {
         console.error("Impossibile caricare il profilo:", err);
       }
       setLoadingProfile(false);
     })();
   }, [params.uid]);
+
+  useEffect(() => {
+    if (!user || user.uid === params.uid) {
+      setIsFriend(false);
+      return;
+    }
+    checkMutualFollow(user.uid, params.uid)
+      .then(setIsFriend)
+      .catch((err) => console.error("Impossibile verificare l'amicizia:", err));
+  }, [user, params.uid]);
 
   if (loadingProfile) {
     return (
@@ -64,15 +83,21 @@ export default function PublicProfilePage() {
     );
   }
 
-  const badges = unlockedBadges(profile.stats);
+  const badgeContext: BadgeContext = {
+    stats: profile.stats,
+    worldStats,
+    dreamDestinationsCount: profile.dreamDestinations?.length ?? 0,
+    interests: profile.interests,
+  };
   const isSelf = user?.uid === profile.uid;
+  const canSeePersonalInfo = isSelf || isFriend;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
       <div className="card-surface mb-6 flex items-center gap-4 p-4 sm:p-5">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-brand-50 ring-4 ring-brand-100">
           {profile.photoURL ? (
-            <Image src={profile.photoURL} alt={profile.displayName} fill className="object-cover" sizes="80px" />
+            <Image src={profile.photoURL} alt={profile.nickname} fill className="object-cover" sizes="80px" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-brand-300">
               <FlamingoMascot className="h-12 w-12" />
@@ -80,8 +105,17 @@ export default function PublicProfilePage() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-heading text-xl font-bold text-gray-900">{profile.displayName}</h1>
-          {profile.bio && <p className="text-sm text-gray-600">{profile.bio}</p>}
+          <h1 className="truncate font-heading text-xl font-bold text-gray-900">@{profile.nickname}</h1>
+          {canSeePersonalInfo ? (
+            <>
+              <p className="truncate text-sm font-semibold text-gray-500">{profile.displayName}</p>
+              {profile.bio && <p className="text-sm text-gray-600">{profile.bio}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-gray-400">
+              🔒 Seguitevi a vicenda per vedere nome e altri dati personali
+            </p>
+          )}
         </div>
       </div>
 
@@ -126,23 +160,9 @@ export default function PublicProfilePage() {
         </ul>
       </div>
 
-      {badges.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🏅 Badge</h2>
-          <ul className="flex flex-wrap gap-2">
-            {badges.map((b) => (
-              <li
-                key={b.id}
-                title={b.description}
-                className="flex items-center gap-1.5 rounded-full bg-sun-50 px-3 py-1.5 text-sm font-bold text-sun-700"
-              >
-                <span aria-hidden>{b.icon}</span>
-                {b.label}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="mb-6">
+        <BadgesShowcase ctx={badgeContext} />
+      </div>
 
       <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">✈️ Viaggi pubblicati</h2>
       {trips.length === 0 ? (

@@ -2,9 +2,11 @@
 
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   increment,
   limit,
@@ -17,7 +19,7 @@ import {
 } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase-client";
 import { destinationMatchKeys } from "./dream-destinations";
-import type { UserProfile } from "./types";
+import type { Trip, UserProfile } from "./types";
 
 export async function followUser(
   currentUid: string,
@@ -136,19 +138,22 @@ export async function notifyDreamDestinationMatches(
   );
 }
 
-// Ricerca "a partire da" sul nome (prefisso): Firestore non fa ricerca
-// full-text, ma un range su displayName è sufficiente per trovare un
-// amico da invitare digitando l'inizio del suo nome.
-export async function searchUsersByName(prefix: string): Promise<UserProfile[]> {
-  const trimmed = prefix.trim();
+// Ricerca "a partire da" sul nickname (prefisso, case-insensitive: prima
+// cercava su displayName con un confronto case-sensitive, che falliva ogni
+// volta che il testo digitato non coincideva per maiuscole/minuscole con
+// come il nome era salvato). Il nickname è univoco: cercare per nickname
+// invece che per nome evita di aggiungere la persona sbagliata in caso di
+// omonimia.
+export async function searchUsersByNickname(prefix: string): Promise<UserProfile[]> {
+  const trimmed = prefix.trim().toLowerCase().replace(/^@/, "");
   if (trimmed.length < 2) return [];
   const db = getFirebaseDb();
   const snap = await getDocs(
     query(
       collection(db, "users"),
-      orderBy("displayName"),
-      where("displayName", ">=", trimmed),
-      where("displayName", "<=", `${trimmed}`),
+      orderBy("nicknameLower"),
+      where("nicknameLower", ">=", trimmed),
+      where("nicknameLower", "<=", `${trimmed}`),
       limit(8)
     )
   );
@@ -156,17 +161,19 @@ export async function searchUsersByName(prefix: string): Promise<UserProfile[]> 
 }
 
 // Invita un utente a partecipare a un viaggio: crea il documento
-// "invited" nella subcollection e notifica l'invitato.
+// "invited" nella subcollection e notifica l'invitato. Si usa il nickname
+// (non il nome e cognome) perché inviante e invitato potrebbero non
+// seguirsi ancora a vicenda.
 export async function inviteTripParticipant(
   tripId: string,
   tripTitle: string,
-  inviter: { uid: string; displayName: string; photoURL: string | null },
-  target: { uid: string; displayName: string; photoURL: string | null }
+  inviter: { uid: string; nickname: string; photoURL: string | null },
+  target: { uid: string; nickname: string; photoURL: string | null }
 ) {
   const db = getFirebaseDb();
   await setDoc(doc(db, "trips", tripId, "participants", target.uid), {
     uid: target.uid,
-    displayName: target.displayName,
+    nickname: target.nickname,
     photoURL: target.photoURL,
     status: "invited",
     invitedBy: inviter.uid,
@@ -175,7 +182,7 @@ export async function inviteTripParticipant(
   await addDoc(collection(db, "users", target.uid, "notifications"), {
     type: "trip_invite",
     fromUid: inviter.uid,
-    fromDisplayName: inviter.displayName,
+    fromDisplayName: inviter.nickname,
     fromPhotoURL: inviter.photoURL,
     tripId,
     tripTitle,
@@ -187,10 +194,37 @@ export async function inviteTripParticipant(
   });
 }
 
+// Accettare un invito conta come "partecipare" al viaggio: aggiorna anche
+// le statistiche del partecipante (viaggi, km) esattamente come per
+// l'autore alla pubblicazione, così i suoi distintivi (calcolati dalle
+// stats) e il suo mondo visitato si aggiornano di conseguenza.
 export async function acceptTripInvite(tripId: string, uid: string) {
-  await updateDoc(doc(getFirebaseDb(), "trips", tripId, "participants", uid), { status: "accepted" });
+  const db = getFirebaseDb();
+  const tripSnap = await getDoc(doc(db, "trips", tripId));
+  const trip = tripSnap.data() as Trip | undefined;
+
+  const batch = writeBatch(db);
+  batch.update(doc(db, "trips", tripId, "participants", uid), { status: "accepted" });
+  batch.update(doc(db, "users", uid), {
+    "stats.tripsCount": increment(1),
+    "stats.totalDistanceKm": increment(trip?.totalDistanceKm ?? 0),
+    participantTripIds: arrayUnion(tripId),
+  });
+  await batch.commit();
 }
 
 export async function declineTripInvite(tripId: string, uid: string) {
   await deleteDoc(doc(getFirebaseDb(), "trips", tripId, "participants", uid));
+}
+
+// "Amici" su WikiTravels = ci si segue a vicenda. Solo in quel caso si
+// vedono i dati personali dell'altro (nome e cognome, bio...); altrimenti
+// si vede solo il nickname pubblico.
+export async function checkMutualFollow(uidA: string, uidB: string): Promise<boolean> {
+  const db = getFirebaseDb();
+  const [aFollowsB, bFollowsA] = await Promise.all([
+    getDoc(doc(db, "follows", `${uidA}_${uidB}`)),
+    getDoc(doc(db, "follows", `${uidB}_${uidA}`)),
+  ]);
+  return aFollowsB.exists() && bFollowsA.exists();
 }

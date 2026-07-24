@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -66,7 +66,26 @@ const QUICK_DESTINATIONS: { name: string; lat: number; lng: number; countryCode:
   { name: "Tokyo, Giappone", lat: 35.6762, lng: 139.6503, countryCode: "jp" },
 ];
 
-export default function NuovoViaggioPage() {
+// useSearchParams() (per la modalità modifica "?edit=") richiede un
+// confine Suspense: senza, la navigazione client-side verso questa pagina
+// (es. dal bottone "Modifica" nella pagina del viaggio) può comportarsi in
+// modo incoerente tra browser diversi invece di limitarsi a un semplice
+// avviso in fase di build.
+export default function NuovoViaggioPageRoute() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+          <div className="h-96 w-full animate-pulse rounded-3xl bg-gray-100" />
+        </main>
+      }
+    >
+      <NuovoViaggioPage />
+    </Suspense>
+  );
+}
+
+function NuovoViaggioPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editTripId = searchParams.get("edit");
@@ -361,7 +380,7 @@ export default function NuovoViaggioPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-2xl border-2 border-gray-200 px-3 py-2.5 focus:border-brand-400 focus:outline-none"
+                className="min-h-[48px] w-full rounded-2xl border-2 border-gray-200 bg-white px-3 py-2.5 text-gray-900 focus:border-brand-400 focus:outline-none"
               />
             </div>
             <div>
@@ -373,7 +392,7 @@ export default function NuovoViaggioPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-2xl border-2 border-gray-200 px-3 py-2.5 focus:border-brand-400 focus:outline-none"
+                className="min-h-[48px] w-full rounded-2xl border-2 border-gray-200 bg-white px-3 py-2.5 text-gray-900 focus:border-brand-400 focus:outline-none"
               />
             </div>
           </div>

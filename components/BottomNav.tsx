@@ -21,6 +21,9 @@ function NavItem({ href, label, icon, active }: { href: string; label: string; i
   );
 }
 
+// Solo le 4 sezioni più usate: il resto (Enciclopedia, Chat, Notifiche,
+// Crea viaggio) sta nel menu hamburger in alto, per non affollare questa
+// barra fissa su schermi piccoli.
 export default function BottomNav() {
   const { user } = useAuth();
   const pathname = usePathname();
@@ -28,38 +31,16 @@ export default function BottomNav() {
 
   if (!user) return null;
 
-  const leftItems = [
+  const items = [
     { href: "/", label: t("home"), icon: "🏠" },
     { href: "/feed", label: t("feed"), icon: "🧭" },
-  ];
-  const rightItems = [
-    { href: "/notifiche", label: t("notifications"), icon: "🔔" },
     { href: "/classifica", label: t("leaderboard"), icon: "🏆" },
+    { href: "/profilo", label: t("profile"), icon: "👤" },
   ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 flex h-[68px] items-stretch border-t border-brand-100 bg-white/95 backdrop-blur-md sm:hidden">
-      {leftItems.map((item) => (
-        <NavItem key={item.href} {...item} active={pathname === item.href} />
-      ))}
-
-      <div className="relative w-16 shrink-0">
-        <Link
-          href="/viaggi/nuovo"
-          aria-label={t("createTrip")}
-          className="tap-scale absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-2xl text-white shadow-pop"
-        >
-          ✚
-        </Link>
-        <Link
-          href="/viaggi"
-          className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-gray-400"
-        >
-          {t("trips")}
-        </Link>
-      </div>
-
-      {rightItems.map((item) => (
+      {items.map((item) => (
         <NavItem key={item.href} {...item} active={pathname === item.href} />
       ))}
     </nav>

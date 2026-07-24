@@ -32,6 +32,7 @@ const en: Dictionary = {
     leaderboard: "Leaderboard",
     trips: "Trips",
     createTrip: "Create new trip",
+    profile: "Profile",
   },
   language: {
     label: "Language",

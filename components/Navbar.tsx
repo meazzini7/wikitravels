@@ -7,7 +7,7 @@ import { collection, limit, onSnapshot, query, where } from "firebase/firestore"
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { useTranslations } from "@/lib/i18n/i18n-context";
-import LanguageSwitcher from "./LanguageSwitcher";
+import MobileMenu from "./MobileMenu";
 import FlamingoMascot from "./FlamingoMascot";
 
 export default function Navbar() {
@@ -43,12 +43,6 @@ export default function Navbar() {
         <span className="font-heading text-xl font-extrabold text-gradient-brand">WikiTravels</span>
       </Link>
       <nav className="flex items-center gap-1 text-sm">
-        <Link
-          href="/enciclopedia"
-          className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
-        >
-          {t("encyclopedia")}
-        </Link>
         {loading ? null : user ? (
           <>
             <Link
@@ -56,6 +50,12 @@ export default function Navbar() {
               className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
               {t("feed")}
+            </Link>
+            <Link
+              href="/enciclopedia"
+              className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
+            >
+              {t("encyclopedia")}
             </Link>
             <Link
               href="/viaggi"
@@ -77,7 +77,7 @@ export default function Navbar() {
             </Link>
             <Link
               href="/notifiche"
-              className="relative flex min-h-[44px] items-center rounded-full px-3 text-gray-600 hover:bg-brand-50 hover:text-brand-700"
+              className="relative hidden min-h-[44px] items-center rounded-full px-3 text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
               aria-label={t("notifications")}
             >
               🔔
@@ -94,31 +94,36 @@ export default function Navbar() {
               </span>
               {profile?.displayName ?? user.email}
             </Link>
-            <LanguageSwitcher />
             <button
               onClick={() => signOut(getFirebaseAuth())}
-              className="flex min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-500 hover:bg-gray-100"
+              className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-500 hover:bg-gray-100 sm:flex"
             >
               {t("logout")}
             </button>
           </>
         ) : (
           <>
-            <LanguageSwitcher />
+            <Link
+              href="/enciclopedia"
+              className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
+            >
+              {t("encyclopedia")}
+            </Link>
             <Link
               href="/login"
-              className="flex min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700"
+              className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
               {t("login")}
             </Link>
             <Link
               href="/registrati"
-              className="tap-scale flex min-h-[44px] items-center rounded-full bg-brand-600 px-4 font-bold text-white shadow-pop hover:bg-brand-700"
+              className="tap-scale hidden min-h-[44px] items-center rounded-full bg-brand-600 px-4 font-bold text-white shadow-pop hover:bg-brand-700 sm:flex"
             >
               {t("register")}
             </Link>
           </>
         )}
+        <MobileMenu hasUnread={hasUnread} />
       </nav>
     </header>
   );
