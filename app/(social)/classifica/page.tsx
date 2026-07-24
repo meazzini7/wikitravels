@@ -21,7 +21,7 @@ function Avatar({ profile, size }: { profile: UserProfile; size: number }) {
       style={{ width: size, height: size }}
     >
       {profile.photoURL ? (
-        <Image src={profile.photoURL} alt={profile.displayName} fill className="object-cover" sizes={`${size}px`} />
+        <Image src={profile.photoURL} alt={profile.nickname} fill className="object-cover" sizes={`${size}px`} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-brand-300">
           <FlamingoMascot className="h-2/3 w-2/3" />
@@ -63,7 +63,7 @@ export default function ClassificaPage() {
                   <span className="text-xl">{MEDALS[i]}</span>
                   <Avatar profile={podium[i]} size={i === 0 ? 64 : 52} />
                   <p className="max-w-[80px] truncate text-center text-xs font-bold text-gray-900">
-                    {podium[i].displayName}
+                    @{podium[i].nickname}
                   </p>
                   <div
                     className={`w-16 rounded-t-xl bg-gradient-to-t from-brand-500 to-brand-300 ${PODIUM_HEIGHTS[i]} flex items-start justify-center pt-1`}
@@ -88,7 +88,7 @@ export default function ClassificaPage() {
                     <span className="w-6 shrink-0 text-center font-heading font-bold text-gray-400">{i + 4}</span>
                     <Avatar profile={p} size={40} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold text-gray-900">{p.displayName}</p>
+                      <p className="truncate font-bold text-gray-900">@{p.nickname}</p>
                       <p className="text-xs text-gray-500">{p.stats.tripsCount} viaggi</p>
                     </div>
                     <p className="shrink-0 font-heading font-bold text-brand-700">

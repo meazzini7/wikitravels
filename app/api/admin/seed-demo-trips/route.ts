@@ -66,8 +66,9 @@ export async function GET(req: NextRequest) {
     // statistiche iniziali del profilo coincidono con quelle del viaggio.
     const userRef = db.collection("users").doc(demo.authorUid);
     const userSnap = await userRef.get();
+    let nickname: string;
     if (!userSnap.exists) {
-      const nickname = await ensureUniqueNickname(db, slugifyBase(demo.authorDisplayName));
+      nickname = await ensureUniqueNickname(db, slugifyBase(demo.authorDisplayName));
       const profile: UserProfile = {
         uid: demo.authorUid,
         displayName: demo.authorDisplayName,
@@ -88,6 +89,8 @@ export async function GET(req: NextRequest) {
       };
       await userRef.set(profile);
       createdUsers.push(demo.authorUid);
+    } else {
+      nickname = (userSnap.data() as UserProfile).nickname;
     }
 
     const cover = await fetchAndUploadImage(demo.coverQuery).catch(() => null);
@@ -99,6 +102,7 @@ export async function GET(req: NextRequest) {
       id: demo.slug,
       authorId: demo.authorUid,
       authorDisplayName: demo.authorDisplayName,
+      authorNickname: nickname,
       authorPhotoURL: null,
       authorInterests: demo.scores,
       scores: demo.scores,

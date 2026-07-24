@@ -88,6 +88,10 @@ export interface Trip {
   id: string;
   authorId: string;
   authorDisplayName: string;
+  // Nickname dell'autore al momento della pubblicazione: usato per la
+  // visualizzazione ovunque fuori dal profilo (Feed, Home, Classifica...),
+  // mentre authorDisplayName resta solo per uso interno/di debug.
+  authorNickname: string;
   authorPhotoURL: string | null;
   authorInterests: InterestScores;
   // Interessi specifici DI QUESTO VIAGGIO (non solo quelli generali

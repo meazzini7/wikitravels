@@ -23,7 +23,7 @@ import type { Trip, UserProfile } from "./types";
 
 export async function followUser(
   currentUid: string,
-  currentDisplayName: string,
+  currentNickname: string,
   currentPhotoURL: string | null,
   targetUid: string
 ) {
@@ -42,7 +42,7 @@ export async function followUser(
   await addDoc(collection(db, "users", targetUid, "notifications"), {
     type: "follow",
     fromUid: currentUid,
-    fromDisplayName: currentDisplayName,
+    fromDisplayName: currentNickname,
     fromPhotoURL: currentPhotoURL,
     tripId: null,
     tripTitle: null,
@@ -67,7 +67,7 @@ export async function unfollowUser(currentUid: string, targetUid: string) {
 interface NewTripInfo {
   tripId: string;
   tripTitle: string;
-  authorDisplayName: string;
+  authorNickname: string;
   authorPhotoURL: string | null;
 }
 
@@ -80,7 +80,7 @@ export async function notifyFollowersOfNewTrip(authorUid: string, trip: NewTripI
       addDoc(collection(db, "users", followDoc.data().followerId, "notifications"), {
         type: "trip",
         fromUid: authorUid,
-        fromDisplayName: trip.authorDisplayName,
+        fromDisplayName: trip.authorNickname,
         fromPhotoURL: trip.authorPhotoURL,
         tripId: trip.tripId,
         tripTitle: trip.tripTitle,
@@ -124,7 +124,7 @@ export async function notifyDreamDestinationMatches(
         return addDoc(collection(db, "users", d.id, "notifications"), {
           type: "dream_trip",
           fromUid: authorUid,
-          fromDisplayName: trip.authorDisplayName,
+          fromDisplayName: trip.authorNickname,
           fromPhotoURL: trip.authorPhotoURL,
           tripId: trip.tripId,
           tripTitle: trip.tripTitle,

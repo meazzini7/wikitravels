@@ -69,7 +69,7 @@ export default function ChatThreadPage() {
           href={`/utenti/${params.uid}`}
           className="font-heading font-bold text-gray-900 hover:text-brand-700"
         >
-          👤 {otherUser?.displayName ?? "Viaggiatore"}
+          👤 {otherUser ? `@${otherUser.nickname}` : "Viaggiatore"}
         </Link>
       </div>
 

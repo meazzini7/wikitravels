@@ -248,6 +248,7 @@ function NuovoViaggioPage() {
       const tripFields = {
         authorId: user.uid,
         authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
+        authorNickname: profile?.nickname ?? "viaggiatore",
         authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
         authorInterests: profile?.interests ?? defaultInterestScores(),
         scores: tripScores,
@@ -305,7 +306,7 @@ function NuovoViaggioPage() {
         const tripInfo = {
           tripId,
           tripTitle: title.trim(),
-          authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
+          authorNickname: profile?.nickname ?? "viaggiatore",
           authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
         };
         notifyFollowersOfNewTrip(user.uid, tripInfo).catch((err) =>
