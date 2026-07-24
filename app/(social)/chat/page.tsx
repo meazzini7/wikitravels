@@ -96,7 +96,7 @@ export default function ChatListPage() {
               >
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-brand-50">
                   {otherUser?.photoURL ? (
-                    <Image src={otherUser.photoURL} alt={otherUser.displayName} fill className="object-cover" sizes="44px" />
+                    <Image src={otherUser.photoURL} alt={otherUser.nickname} fill className="object-cover" sizes="44px" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-brand-300">
                       <FlamingoMascot className="h-6 w-6" />
@@ -104,7 +104,9 @@ export default function ChatListPage() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-gray-900">{otherUser?.displayName ?? "Viaggiatore"}</p>
+                  <p className="truncate font-bold text-gray-900">
+                    {otherUser ? `@${otherUser.nickname}` : "Viaggiatore"}
+                  </p>
                   <p className="truncate text-sm text-gray-500">{chat.lastMessage}</p>
                 </div>
               </Link>

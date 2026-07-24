@@ -9,7 +9,7 @@ import {
   acceptTripInvite,
   declineTripInvite,
   inviteTripParticipant,
-  searchUsersByName,
+  searchUsersByNickname,
 } from "@/lib/social";
 import type { TripParticipant, UserProfile } from "@/lib/types";
 import FlamingoMascot from "@/components/FlamingoMascot";
@@ -54,7 +54,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
       return;
     }
     const timeout = setTimeout(() => {
-      searchUsersByName(searchText)
+      searchUsersByNickname(searchText)
         .then((users) => setSearchResults(users.filter((u) => u.uid !== user?.uid)))
         .catch(() => setSearchResults([]));
     }, 350);
@@ -68,8 +68,8 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
       await inviteTripParticipant(
         tripId,
         tripTitle,
-        { uid: user.uid, displayName: profile.displayName, photoURL: profile.photoURL },
-        { uid: target.uid, displayName: target.displayName, photoURL: target.photoURL }
+        { uid: user.uid, nickname: profile.nickname, photoURL: profile.photoURL },
+        { uid: target.uid, nickname: target.nickname, photoURL: target.photoURL }
       );
       setSearchText("");
       setSearchResults([]);
@@ -140,12 +140,12 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
             >
               <span className="relative h-6 w-6 overflow-hidden rounded-full bg-white">
                 {p.photoURL ? (
-                  <Image src={p.photoURL} alt={p.displayName} fill className="object-cover" sizes="24px" />
+                  <Image src={p.photoURL} alt={p.nickname} fill className="object-cover" sizes="24px" />
                 ) : (
                   <FlamingoMascot className="h-full w-full p-0.5 text-brand-300" />
                 )}
               </span>
-              {p.displayName}
+              @{p.nickname}
             </li>
           ))}
           {isOwner &&
@@ -156,12 +156,12 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
               >
                 <span className="relative h-6 w-6 overflow-hidden rounded-full bg-white">
                   {p.photoURL ? (
-                    <Image src={p.photoURL} alt={p.displayName} fill className="object-cover" sizes="24px" />
+                    <Image src={p.photoURL} alt={p.nickname} fill className="object-cover" sizes="24px" />
                   ) : (
                     <FlamingoMascot className="h-full w-full p-0.5 text-gray-300" />
                   )}
                 </span>
-                {p.displayName} · in attesa
+                @{p.nickname} · in attesa
               </li>
             ))}
         </ul>
@@ -172,7 +172,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
           <input
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Cerca un viaggiatore da invitare..."
+            placeholder="Cerca per nickname (es. marco92)..."
             className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <FloatingPanel anchorRef={searchWrapperRef} open={searchResults.length > 0}>
@@ -187,12 +187,12 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
                   >
                     <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-brand-50">
                       {result.photoURL ? (
-                        <Image src={result.photoURL} alt={result.displayName} fill className="object-cover" sizes="28px" />
+                        <Image src={result.photoURL} alt={result.nickname} fill className="object-cover" sizes="28px" />
                       ) : (
                         <FlamingoMascot className="h-full w-full p-1 text-brand-300" />
                       )}
                     </span>
-                    <span className="flex-1 truncate font-semibold text-gray-800">{result.displayName}</span>
+                    <span className="flex-1 truncate font-semibold text-gray-800">@{result.nickname}</span>
                     <span className="text-xs font-bold text-brand-600">
                       {participants.some((p) => p.uid === result.uid) ? "già invitato" : "invita"}
                     </span>

@@ -27,6 +27,11 @@ export interface DreamDestination {
 export interface UserProfile {
   uid: string;
   displayName: string;
+  // Handle pubblico e univoco: mostrato ovunque al posto di nome e
+  // cognome, finché non ci si segue a vicenda (vedi lib/social.ts,
+  // checkMutualFollow) o non è il proprio profilo.
+  nickname: string;
+  nicknameLower: string;
   email: string;
   photoURL: string | null;
   bio: string;
@@ -43,6 +48,10 @@ export interface UserProfile {
   // Codice breve (6 caratteri) per il link di invito, molto più corto
   // dell'uid completo di Firebase Auth.
   referralCode: string;
+  // Id dei viaggi altrui a cui si partecipa (invito accettato): servono
+  // per includerli nelle statistiche (km, città, nazioni) e nei
+  // distintivi di chi partecipa, non solo di chi li ha creati.
+  participantTripIds: string[];
 }
 
 export interface PoiRating {
@@ -68,7 +77,7 @@ export interface TripStop {
 
 export interface TripParticipant {
   uid: string;
-  displayName: string;
+  nickname: string;
   photoURL: string | null;
   status: "invited" | "accepted";
   invitedBy: string;
@@ -79,6 +88,10 @@ export interface Trip {
   id: string;
   authorId: string;
   authorDisplayName: string;
+  // Nickname dell'autore al momento della pubblicazione: usato per la
+  // visualizzazione ovunque fuori dal profilo (Feed, Home, Classifica...),
+  // mentre authorDisplayName resta solo per uso interno/di debug.
+  authorNickname: string;
   authorPhotoURL: string | null;
   authorInterests: InterestScores;
   // Interessi specifici DI QUESTO VIAGGIO (non solo quelli generali

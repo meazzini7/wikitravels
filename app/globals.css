@@ -5,6 +5,12 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Il sito non ha un tema scuro: senza questo, iOS Safari in Dark Mode
+       può dipingere di nero l'area di "rimbalzo" durante lo scroll (o
+       qualunque area non coperta esplicitamente da uno sfondo), dando
+       l'impressione di un errore grafico. */
+    color-scheme: light;
+    background-color: #fff7f9;
   }
 
   body {
@@ -13,7 +19,9 @@
       radial-gradient(circle at 8% 0%, rgba(255, 148, 184, 0.35), transparent 45%),
       radial-gradient(circle at 100% 12%, rgba(120, 218, 212, 0.3), transparent 40%),
       radial-gradient(circle at 90% 90%, rgba(255, 190, 31, 0.18), transparent 40%);
-    background-attachment: fixed;
+    /* "background-attachment: fixed" è tra le cause più note dello sfondo
+       nero/vuoto durante lo scroll su Safari iOS (bug storico del
+       rendering del rimbalzo): rimosso, lo sfondo scorre con la pagina. */
   }
 
   h1,

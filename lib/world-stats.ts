@@ -1,6 +1,6 @@
 "use client";
 
-import { collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase-client";
 import { alpha2ToAlpha3 } from "./iso-countries";
 import type { Trip, TripStop } from "./types";
@@ -38,13 +38,17 @@ export interface VisitedWorldStats {
   countriesCount: number;
 }
 
-// Conta città/nazioni distinte visitate da un utente, leggendo tutte le
-// tappe dei suoi viaggi via collectionGroup (serve il campo `authorId`
-// denormalizzato su ogni tappa e l'indice in firestore.indexes.json).
-export async function fetchVisitedWorldStats(uid: string): Promise<VisitedWorldStats> {
+// Conta città/nazioni visitate leggendo le tappe di una lista di viaggi
+// (i propri + quelli a cui si partecipa). Una query per viaggio sulla sua
+// subcollection "stops", invece di un collectionGroup su tutte le tappe
+// di tutti i viaggi: quest'ultima richiederebbe un indice dedicato da
+// creare manualmente su Firebase Console (mai fatto, da qui il contatore
+// sempre a 0 in produzione), mentre una query su una subcollection nota
+// non ha bisogno di nessun indice speciale.
+export async function fetchVisitedWorldStats(tripIds: string[]): Promise<VisitedWorldStats> {
   const db = getFirebaseDb();
-  const snap = await getDocs(query(collectionGroup(db, "stops"), where("authorId", "==", uid)));
-  const stops = snap.docs.map((d) => d.data() as TripStop);
+  const snapshots = await Promise.all(tripIds.map((id) => getDocs(collection(db, "trips", id, "stops"))));
+  const stops = snapshots.flatMap((snap) => snap.docs.map((d) => d.data() as TripStop));
   const countries = new Set(stops.map((s) => s.countryCode).filter(Boolean));
   return { citiesCount: stops.length, countriesCount: countries.size };
 }

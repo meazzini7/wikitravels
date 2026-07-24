@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import { getFirebaseDb } from "./firebase-client";
 import { defaultInterestScores } from "./interests";
 import { generateReferralCode } from "./id";
+import { generateUniqueNickname } from "./nickname";
 import type { UserProfile } from "./types";
 
 // Chiamata dopo login/registrazione: crea il documento users/{uid} se è la
@@ -14,9 +15,14 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     return snap.data() as UserProfile;
   }
 
+  const displayName = user.displayName ?? user.email?.split("@")[0] ?? "Viaggiatore";
+  const nickname = await generateUniqueNickname(displayName);
+
   const profile: UserProfile = {
     uid: user.uid,
-    displayName: user.displayName ?? user.email?.split("@")[0] ?? "Viaggiatore",
+    displayName,
+    nickname,
+    nicknameLower: nickname.toLowerCase(),
     email: user.email ?? "",
     photoURL: user.photoURL,
     bio: "",
@@ -28,6 +34,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     dreamDestinations: [],
     dreamDestinationKeys: [],
     referralCode: generateReferralCode(),
+    participantTripIds: [],
   };
   await setDoc(ref, profile);
   return profile;

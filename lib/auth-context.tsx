@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb } from "./firebase-client";
 import { ensureUserProfile } from "./ensure-user-profile";
+import { generateUniqueNickname } from "./nickname";
 import type { UserProfile } from "./types";
 
 interface AuthContextValue {
@@ -48,8 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       doc(getFirebaseDb(), "users", user.uid),
       (snap) => {
         if (snap.exists()) {
-          setProfile(snap.data() as UserProfile);
+          const data = snap.data() as UserProfile;
+          setProfile(data);
           setLoading(false);
+          // Profili creati prima dell'introduzione del nickname (nome e
+          // cognome mostrati ovunque fuori dal proprio profilo, ma il resto
+          // del portale ora mostra solo il nickname): lo genera e lo
+          // salva una volta sola, così anche i vecchi account lo ottengono
+          // senza dover riaccedere da zero.
+          if (!data.nickname) {
+            generateUniqueNickname(data.displayName).then((nickname) => {
+              updateDoc(doc(getFirebaseDb(), "users", user.uid), {
+                nickname,
+                nicknameLower: nickname.toLowerCase(),
+              }).catch((err) => console.error("Impossibile assegnare il nickname:", err));
+            });
+          }
           return;
         }
         // Il documento del profilo non esiste (es. creazione fallita al

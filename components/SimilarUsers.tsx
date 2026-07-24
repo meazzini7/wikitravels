@@ -71,14 +71,14 @@ export default function SimilarUsers({ currentUid, interests }: SimilarUsersProp
           >
             <div className="relative h-12 w-12 overflow-hidden rounded-full bg-brand-50">
               {p.photoURL ? (
-                <Image src={p.photoURL} alt={p.displayName} fill className="object-cover" sizes="48px" />
+                <Image src={p.photoURL} alt={p.nickname} fill className="object-cover" sizes="48px" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-brand-300">
                   <FlamingoMascot className="h-7 w-7" />
                 </div>
               )}
             </div>
-            <p className="w-full truncate text-xs font-bold text-gray-800">{p.displayName}</p>
+            <p className="w-full truncate text-xs font-bold text-gray-800">@{p.nickname}</p>
             <MatchGauge percent={score} size={32} />
           </Link>
         </li>

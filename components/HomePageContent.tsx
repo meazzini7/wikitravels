@@ -182,7 +182,9 @@ export default function HomePageContent() {
                 </div>
                 <div className="p-2.5">
                   <h3 className="truncate font-heading text-sm font-bold text-gray-900">{trip.title}</h3>
-                  <p className="truncate text-[11px] font-semibold text-brand-700">{trip.authorDisplayName}</p>
+                  <p className="truncate text-[11px] font-semibold text-brand-700">
+                    @{trip.authorNickname ?? trip.authorDisplayName}
+                  </p>
                 </div>
               </Link>
             ))}

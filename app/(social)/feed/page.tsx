@@ -116,7 +116,7 @@ export default function FeedPage() {
                     href={`/utenti/${trip.authorId}`}
                     className="text-sm font-semibold text-brand-700 hover:underline"
                   >
-                    {trip.authorDisplayName}
+                    @{trip.authorNickname ?? trip.authorDisplayName}
                   </Link>
                 </div>
               </div>

@@ -4,22 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { defaultInterestScores, type InterestScores } from "@/lib/interests";
-import { unlockedBadges } from "@/lib/badges";
+import type { BadgeContext } from "@/lib/badges";
 import { fetchVisitedWorldStats, visitedCountriesMap, type VisitedWorldStats } from "@/lib/world-stats";
 import { destinationMatchKeys } from "@/lib/dream-destinations";
 import { generateId } from "@/lib/id";
+import { isNicknameTaken } from "@/lib/nickname";
 import Link from "next/link";
 import InterestSliders from "@/components/InterestSliders";
 import PlaceSearch from "@/components/PlaceSearch";
 import InviteShare from "@/components/InviteShare";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import SimilarUsers from "@/components/SimilarUsers";
+import BadgesShowcase from "@/components/BadgesShowcase";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import StatTile from "@/components/ui/StatTile";
-import { BADGES } from "@/lib/badges";
 import type { DreamDestination, HomeLocation, Trip } from "@/lib/types";
 
 const WorldMap = dynamic(() => import("@/components/WorldMap"), {
@@ -32,6 +34,9 @@ export default function ProfiloPage() {
   const { user, profile, loading } = useAuth();
   const [interests, setInterests] = useState<InterestScores>(defaultInterestScores());
   const [bio, setBio] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const [checkingNickname, setCheckingNickname] = useState(false);
   const [homeLocation, setHomeLocation] = useState<HomeLocation | null>(null);
   const [dreamDestinations, setDreamDestinations] = useState<DreamDestination[]>([]);
   const [saving, setSaving] = useState(false);
@@ -49,18 +54,39 @@ export default function ProfiloPage() {
       setBio(profile.bio ?? "");
       setHomeLocation(profile.homeLocation ?? null);
       setDreamDestinations(profile.dreamDestinations ?? []);
+      setNickname(profile.nickname ?? "");
     }
   }, [profile]);
 
   useEffect(() => {
-    if (!user) return;
-    getDocs(query(collection(getFirebaseDb(), "trips"), where("authorId", "==", user.uid)))
-      .then((snap) => setMyTrips(snap.docs.map((d) => d.data() as Trip)))
-      .catch((err) => console.error("Impossibile caricare i tuoi viaggi:", err));
-    fetchVisitedWorldStats(user.uid)
-      .then(setWorldStats)
-      .catch((err) => console.error("Impossibile calcolare il mondo visitato:", err));
-  }, [user]);
+    if (!user || !profile) return;
+    (async () => {
+      try {
+        const db = getFirebaseDb();
+        const authoredSnap = await getDocs(query(collection(db, "trips"), where("authorId", "==", user.uid)));
+        const authoredTrips = authoredSnap.docs.map((d) => d.data() as Trip);
+
+        // Viaggi altrui a cui si partecipa (invito accettato): contano
+        // anch'essi per il mondo visitato, non solo quelli creati in prima persona.
+        const participantTripIds = profile.participantTripIds ?? [];
+        const participantSnaps = await Promise.all(
+          participantTripIds.map((id) => getDoc(doc(db, "trips", id)))
+        );
+        const participantTrips = participantSnaps
+          .filter((s) => s.exists())
+          .map((s) => s.data() as Trip);
+
+        const allTrips = [...authoredTrips, ...participantTrips];
+        setMyTrips(allTrips);
+
+        const allTripIds = allTrips.map((t) => t.id);
+        const stats = await fetchVisitedWorldStats(allTripIds);
+        setWorldStats(stats);
+      } catch (err) {
+        console.error("Impossibile caricare i tuoi viaggi:", err);
+      }
+    })();
+  }, [user, profile]);
 
   const visitedMap = useMemo(() => visitedCountriesMap(myTrips), [myTrips]);
 
@@ -81,6 +107,27 @@ export default function ProfiloPage() {
 
   async function save() {
     if (!user) return;
+    setNicknameError(null);
+
+    const trimmedNickname = nickname.trim();
+    if (trimmedNickname.length < 3) {
+      setNicknameError("Il nickname deve avere almeno 3 caratteri.");
+      return;
+    }
+    if (!/^[a-z0-9_.]+$/i.test(trimmedNickname)) {
+      setNicknameError("Solo lettere, numeri, punti e underscore.");
+      return;
+    }
+    if (trimmedNickname !== profile?.nickname) {
+      setCheckingNickname(true);
+      const taken = await isNicknameTaken(trimmedNickname, user.uid);
+      setCheckingNickname(false);
+      if (taken) {
+        setNicknameError("Questo nickname è già in uso, scegline un altro.");
+        return;
+      }
+    }
+
     setSaving(true);
     setSaved(false);
     const dreamDestinationKeys = Array.from(
@@ -92,6 +139,8 @@ export default function ProfiloPage() {
       homeLocation,
       dreamDestinations,
       dreamDestinationKeys,
+      nickname: trimmedNickname,
+      nicknameLower: trimmedNickname.toLowerCase(),
     });
     setSaving(false);
     setSaved(true);
@@ -114,7 +163,12 @@ export default function ProfiloPage() {
     );
   }
 
-  const badges = unlockedBadges(profile.stats);
+  const badgeContext: BadgeContext = {
+    stats: profile.stats,
+    worldStats,
+    dreamDestinationsCount: dreamDestinations.length,
+    interests,
+  };
 
   return (
     <main className="mx-auto max-w-lg px-4 py-6 sm:py-8">
@@ -165,25 +219,7 @@ export default function ProfiloPage() {
       )}
 
       <div className="mb-6">
-        <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🏅 Badge</h2>
-        {badges.length > 0 ? (
-          <ul className="flex flex-wrap gap-2">
-            {badges.map((b) => (
-              <li
-                key={b.id}
-                title={b.description}
-                className="flex items-center gap-1.5 rounded-full bg-sun-50 px-3 py-1.5 text-sm font-bold text-sun-700"
-              >
-                <span aria-hidden>{b.icon}</span>
-                {b.label}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
-            {BADGES[0].icon} Pubblica il tuo primo viaggio per sbloccare &quot;{BADGES[0].label}&quot;!
-          </p>
-        )}
+        <BadgesShowcase ctx={badgeContext} />
       </div>
 
       <div className="card-surface mb-6 p-4 sm:p-5">
@@ -198,6 +234,26 @@ export default function ProfiloPage() {
             La mappa si colora man mano che pubblichi viaggi con delle tappe ✈️
           </p>
         )}
+      </div>
+
+      <div className="card-surface mb-6 p-4 sm:p-5">
+        <label htmlFor="nickname" className="mb-1 block text-sm font-bold text-gray-700">
+          🏷️ Nickname
+        </label>
+        <p className="mb-2 text-xs text-gray-500">
+          Il tuo nome pubblico e univoco: è quello che vedono gli altri finché non vi seguite a vicenda. Solo
+          lettere, numeri, punti e underscore.
+        </p>
+        <input
+          id="nickname"
+          value={nickname}
+          onChange={(e) => {
+            setNickname(e.target.value);
+            setNicknameError(null);
+          }}
+          className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
+        />
+        {nicknameError && <p className="mt-1 text-xs text-red-500">{nicknameError}</p>}
       </div>
 
       <div className="card-surface mb-6 p-4 sm:p-5">
@@ -273,11 +329,16 @@ export default function ProfiloPage() {
 
       <button
         onClick={save}
-        disabled={saving}
+        disabled={saving || checkingNickname}
         className="tap-scale min-h-[48px] w-full rounded-2xl bg-brand-600 px-4 py-2 font-heading font-bold text-white shadow-pop disabled:opacity-60"
       >
-        {saving ? "Salvataggio..." : saved ? "Salvato ✓" : "Salva modifiche"}
+        {checkingNickname ? "Verifica nickname..." : saving ? "Salvataggio..." : saved ? "Salvato ✓" : "Salva modifiche"}
       </button>
+
+      <div className="card-surface mt-6 p-4 sm:p-5">
+        <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">🌐 Lingua</h2>
+        <LanguageSwitcher />
+      </div>
 
       <div className="card-surface mt-6 p-4 sm:p-5">
         <h2 className="mb-2 font-heading text-sm font-bold text-gray-700">📣 Invita altri viaggiatori</h2>

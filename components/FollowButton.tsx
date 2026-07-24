@@ -30,7 +30,7 @@ export default function FollowButton({ targetUid }: { targetUid: string }) {
       } else {
         await followUser(
           user.uid,
-          profile?.displayName ?? user.email ?? "Viaggiatore",
+          profile?.nickname ?? user.email ?? "Viaggiatore",
           profile?.photoURL ?? user.photoURL ?? null,
           targetUid
         );
