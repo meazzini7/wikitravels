@@ -1,15 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { doc, updateDoc } from "firebase/firestore";
+import { getFirebaseDb } from "@/lib/firebase-client";
+import { generateReferralCode } from "@/lib/id";
+import { getSiteUrl } from "@/lib/site-url";
 
 interface InviteShareProps {
   uid: string;
+  code: string | null;
 }
 
-export default function InviteShare({ uid }: InviteShareProps) {
+export default function InviteShare({ uid, code }: InviteShareProps) {
   const [copied, setCopied] = useState(false);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wikitravels-seven.vercel.app";
-  const inviteUrl = `${siteUrl}/registrati?ref=${uid}`;
+  const [resolvedCode, setResolvedCode] = useState(code);
+
+  // Profili creati prima dell'introduzione del codice breve non ne hanno
+  // ancora uno: lo generiamo e salviamo al volo alla prima visita qui,
+  // invece di lasciarli per sempre con il link lungo basato sull'uid.
+  useEffect(() => {
+    if (resolvedCode) return;
+    const newCode = generateReferralCode();
+    updateDoc(doc(getFirebaseDb(), "users", uid), { referralCode: newCode })
+      .then(() => setResolvedCode(newCode))
+      .catch((err) => console.error("Impossibile generare il codice invito:", err));
+  }, [resolvedCode, uid]);
+
+  const inviteUrl = `${getSiteUrl()}/registrati?ref=${resolvedCode ?? uid}`;
   const whatsappText = encodeURIComponent(
     `Vieni a scoprire i miei viaggi su WikiTravels! ${inviteUrl}`
   );

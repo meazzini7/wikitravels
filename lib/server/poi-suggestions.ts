@@ -29,28 +29,38 @@ function parseNames(raw: string): string[] {
 // Suggerisce punti di interesse per un luogo (funziona per qualsiasi
 // posto al mondo: non è un elenco statico, li genera l'AI). In cache su
 // Firestore per nome luogo, così lo stesso posto richiesto da utenti
-// diversi non richiama Gemini più di una volta.
-export async function getPoiSuggestions(place: string): Promise<string[]> {
+// diversi non richiama Gemini più di una volta. Passando `exclude` (nomi
+// già mostrati, es. per il bottone "altri suggerimenti") si salta la
+// cache e si chiede a Gemini di proporne di nuovi, che vengono comunque
+// aggiunti alla cache per le prossime volte.
+export async function getPoiSuggestions(place: string, exclude: string[] = []): Promise<string[]> {
   const key = placeKey(place);
   const ref = getAdminDb().collection("poiSuggestions").doc(key);
 
   const cached = await ref.get();
-  if (cached.exists) {
-    const names = cached.data()?.names;
-    if (Array.isArray(names) && names.length > 0) return names;
+  const cachedNames: string[] = Array.isArray(cached.data()?.names) ? cached.data()!.names : [];
+
+  if (exclude.length === 0 && cachedNames.length > 0) {
+    return cachedNames;
   }
 
-  const prompt = `Elenca gli 8 punti di interesse turistici più famosi e consigliati a "${place}". Rispondi SOLO con un elenco, un nome per riga, senza numeri, trattini, descrizioni o altro testo aggiuntivo.`;
+  const alreadyKnown = Array.from(new Set([...cachedNames, ...exclude]));
+  const excludeText =
+    alreadyKnown.length > 0 ? ` Non includere questi, già proposti in precedenza: ${alreadyKnown.join(", ")}.` : "";
+  const prompt = `Elenca 8 punti di interesse turistici famosi e consigliati a "${place}".${excludeText} Rispondi SOLO con un elenco, un nome per riga, senza numeri, trattini, descrizioni o altro testo aggiuntivo.`;
   const raw = await askGemini(prompt, { retryOn429: false });
-  const names = parseNames(raw);
+  const freshNames = parseNames(raw).filter(
+    (name) => !alreadyKnown.some((known) => known.toLowerCase() === name.toLowerCase())
+  );
 
-  if (names.length === 0) {
-    throw new Error(`Nessun punto di interesse estratto per "${place}"`);
+  if (freshNames.length === 0) {
+    throw new Error(`Nessun punto di interesse (nuovo) trovato per "${place}"`);
   }
 
+  const updatedNames = Array.from(new Set([...cachedNames, ...freshNames]));
   ref
-    .set({ place, names, createdAt: Date.now() })
+    .set({ place, names: updatedNames, createdAt: Date.now() })
     .catch((err) => console.error(`Impossibile salvare in cache i POI di ${place}:`, err));
 
-  return names;
+  return exclude.length === 0 ? updatedNames : freshNames;
 }

@@ -6,9 +6,15 @@ export const maxDuration = 30;
 export async function GET(req: NextRequest) {
   const place = req.nextUrl.searchParams.get("place")?.trim() ?? "";
   if (place.length < 2) return NextResponse.json({ names: [] });
+  const exclude =
+    req.nextUrl.searchParams
+      .get("exclude")
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
 
   try {
-    const names = await getPoiSuggestions(place);
+    const names = await getPoiSuggestions(place, exclude);
     return NextResponse.json({ names });
   } catch (err) {
     console.error(`Impossibile suggerire punti di interesse per "${place}":`, err);

@@ -40,6 +40,9 @@ export interface UserProfile {
   // dreamDestinations: permettono una query Firestore "array-contains-any"
   // per trovare chi sogna una certa meta, senza dover confrontare oggetti.
   dreamDestinationKeys: string[];
+  // Codice breve (6 caratteri) per il link di invito, molto più corto
+  // dell'uid completo di Firebase Auth.
+  referralCode: string;
 }
 
 export interface PoiRating {

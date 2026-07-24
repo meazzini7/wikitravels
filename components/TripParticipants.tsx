@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/social";
 import type { TripParticipant, UserProfile } from "@/lib/types";
 import FlamingoMascot from "@/components/FlamingoMascot";
+import FloatingPanel from "@/components/ui/FloatingPanel";
 
 interface TripParticipantsProps {
   tripId: string;
@@ -31,6 +32,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [inviting, setInviting] = useState<string | null>(null);
   const [responding, setResponding] = useState(false);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   async function reload() {
     const snap = await getDocs(collection(getFirebaseDb(), "trips", tripId, "participants"));
@@ -166,15 +168,15 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
       )}
 
       {isOwner && (
-        <div className="relative">
+        <div ref={searchWrapperRef} className="relative">
           <input
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder="Cerca un viaggiatore da invitare..."
             className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2 text-sm focus:border-brand-400 focus:outline-none"
           />
-          {searchResults.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
+          <FloatingPanel anchorRef={searchWrapperRef} open={searchResults.length > 0}>
+            <ul className="mt-1 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
               {searchResults.map((result) => (
                 <li key={result.uid}>
                   <button
@@ -198,7 +200,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
                 </li>
               ))}
             </ul>
-          )}
+          </FloatingPanel>
         </div>
       )}
     </div>

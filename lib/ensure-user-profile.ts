@@ -2,6 +2,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { getFirebaseDb } from "./firebase-client";
 import { defaultInterestScores } from "./interests";
+import { generateReferralCode } from "./id";
 import type { UserProfile } from "./types";
 
 // Chiamata dopo login/registrazione: crea il documento users/{uid} se è la
@@ -26,6 +27,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     homeLocation: null,
     dreamDestinations: [],
     dreamDestinationKeys: [],
+    referralCode: generateReferralCode(),
   };
   await setDoc(ref, profile);
   return profile;

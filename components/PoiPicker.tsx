@@ -16,6 +16,7 @@ interface PoiPickerProps {
 // già usato per gli interessi.
 export default function PoiPicker({ placeName, value, onChange }: PoiPickerProps) {
   const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,23 @@ export default function PoiPicker({ placeName, value, onChange }: PoiPickerProps
       cancelled = true;
     };
   }, [placeName]);
+
+  async function loadMore() {
+    if (!suggestions) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/poi/suggest?place=${encodeURIComponent(placeName)}&exclude=${encodeURIComponent(suggestions.join(","))}`
+      );
+      const data = await res.json();
+      const fresh: string[] = Array.isArray(data.names) ? data.names : [];
+      setSuggestions((prev) => Array.from(new Set([...(prev ?? []), ...fresh])));
+    } catch (err) {
+      console.error("Impossibile caricare altri punti di interesse:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function toggle(name: string) {
     const existing = value.find((v) => v.name === name);
@@ -89,6 +107,17 @@ export default function PoiPicker({ placeName, value, onChange }: PoiPickerProps
           </div>
         );
       })}
+      <button
+        type="button"
+        onClick={loadMore}
+        disabled={loadingMore}
+        className="tap-scale mt-1 flex items-center justify-center gap-1.5 self-start rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 disabled:opacity-50"
+      >
+        <span className={loadingMore ? "animate-spin" : ""} aria-hidden>
+          🔄
+        </span>
+        {loadingMore ? "Cerco altri suggerimenti..." : "Altri suggerimenti"}
+      </button>
     </div>
   );
 }
