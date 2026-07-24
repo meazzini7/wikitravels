@@ -3,23 +3,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getLocalizedArticle } from "@/lib/server/get-localized-article";
+import { getServerLocale } from "@/lib/i18n/server-locale";
+import { getDictionary } from "@/lib/i18n/dictionary";
 import ShareButtons from "@/components/ShareButtons";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import type { Article } from "@/lib/types";
-
-export const revalidate = 3600;
-
-async function getArticle(slug: string): Promise<Article | null> {
-  try {
-    const snap = await getAdminDb().collection("articles").doc(slug).get();
-    if (!snap.exists) return null;
-    return snap.data() as Article;
-  } catch (err) {
-    console.error("Impossibile caricare l'articolo:", err);
-    return null;
-  }
-}
 
 async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
   try {
@@ -58,10 +48,11 @@ export async function generateMetadata({
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const article = await getArticle(params.slug);
+  const locale = getServerLocale();
+  const article = await getLocalizedArticle(params.slug, locale);
   if (!article) return {};
-  const title = article.seo?.metaTitle ?? article.title;
-  const description = article.seo?.metaDescription;
+  const title = article.displayMetaTitle;
+  const description = article.displayMetaDescription;
   return {
     title,
     description,
@@ -95,7 +86,9 @@ function toIsoDate(value: unknown): string | undefined {
 }
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
-  const article = await getArticle(params.slug);
+  const locale = getServerLocale();
+  const dict = getDictionary(locale).enciclopedia;
+  const article = await getLocalizedArticle(params.slug, locale);
   if (!article) notFound();
 
   const relatedArticles = await getRelatedArticles(article.slug);
@@ -106,8 +99,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: article.title,
-    description: article.seo?.metaDescription,
+    headline: article.displayTitle,
+    description: article.displayMetaDescription,
     image: article.coverImageUrl ? [article.coverImageUrl] : undefined,
     datePublished: publishedDate,
     author: { "@type": "Organization", name: "WikiTravels" },
@@ -126,7 +119,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         <div className="relative mb-6 h-64 w-full overflow-hidden rounded-3xl shadow-soft sm:h-80">
           <Image
             src={article.coverImageUrl}
-            alt={article.title}
+            alt={article.displayTitle}
             fill
             className="object-cover"
             sizes="768px"
@@ -138,7 +131,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </span>
         </div>
       )}
-      <h1 className="mb-3 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.title}</h1>
+      <h1 className="mb-3 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.displayTitle}</h1>
 
       <ul className="mb-4 flex flex-wrap gap-1.5">
         {topInterests(article.scores, 3).map((key) => (
@@ -152,14 +145,18 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         ))}
       </ul>
 
+      {article.isMachineTranslated && (
+        <p className="mb-4 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500">🌐 {dict.translatingNotice}</p>
+      )}
+
       <div className="mb-6">
-        <ShareButtons url={articleUrl} title={article.title} />
+        <ShareButtons url={articleUrl} title={article.displayTitle} />
       </div>
 
       {/* eslint-disable-next-line react/no-danger */}
       <div
         className="card-surface prose prose-brand max-w-none p-5 sm:p-8"
-        dangerouslySetInnerHTML={{ __html: article.contentHtml }}
+        dangerouslySetInnerHTML={{ __html: article.displayContentHtml }}
       />
 
       {/* Slot pubblicitario predisposto (Google AdSense) */}
@@ -169,7 +166,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
       {article.coverImageCredit && (
         <p className="mb-8 text-xs text-gray-500">
-          Foto di{" "}
+          {dict.photoBy}{" "}
           <a
             href={article.coverImageCredit.link}
             target="_blank"
@@ -178,13 +175,13 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           >
             {article.coverImageCredit.author}
           </a>{" "}
-          su Unsplash
+          {dict.onUnsplash}
         </p>
       )}
 
       {relatedArticles.length > 0 && (
         <section>
-          <h2 className="mb-4 font-heading text-lg font-bold text-gray-900">📚 Articoli correlati</h2>
+          <h2 className="mb-4 font-heading text-lg font-bold text-gray-900">{dict.relatedTitle}</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {relatedArticles.map((related) => (
               <Link

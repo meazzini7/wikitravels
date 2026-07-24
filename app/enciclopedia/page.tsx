@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getServerLocale } from "@/lib/i18n/server-locale";
+import { getDictionary } from "@/lib/i18n/dictionary";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import RecommendedArticles from "@/components/RecommendedArticles";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
@@ -32,19 +34,18 @@ async function getArticles(): Promise<Article[]> {
 
 export default async function EnciclopediaPage() {
   const articles = await getArticles();
+  const dict = getDictionary(getServerLocale()).enciclopedia;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
       <div className="relative mb-8 overflow-hidden rounded-4xl bg-gradient-to-br from-lagoon-600 via-lagoon-500 to-brand-500 px-6 py-8 text-center text-white shadow-pop sm:px-10 sm:py-10">
-        <h1 className="font-heading text-2xl font-extrabold sm:text-4xl">📖 Enciclopedia dei viaggi</h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-white/90 sm:text-base">
-          Guide di destinazioni generate e aggiornate ogni giorno, per ispirare il tuo prossimo viaggio.
-        </p>
+        <h1 className="font-heading text-2xl font-extrabold sm:text-4xl">{dict.heroTitle}</h1>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-white/90 sm:text-base">{dict.heroSubtitle}</p>
       </div>
       {articles.length === 0 ? (
         <div className="card-surface flex flex-col items-center gap-2 p-10 text-center">
           <FlamingoMascot className="h-14 w-14 opacity-70" />
-          <p className="font-heading font-bold text-gray-900">Il primo articolo arriva a breve</p>
+          <p className="font-heading font-bold text-gray-900">{dict.firstArticleSoon}</p>
         </div>
       ) : (
         <>

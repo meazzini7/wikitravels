@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Baloo_2, Nunito } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { I18nProvider } from "@/lib/i18n/i18n-context";
+import { getServerLocale } from "@/lib/i18n/server-locale";
+import { getDictionary } from "@/lib/i18n/dictionary";
 import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -72,15 +75,20 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const locale = getServerLocale();
+  const dictionary = getDictionary(locale);
+
   return (
-    <html lang="it" className={`${heading.variable} ${body.variable}`}>
+    <html lang={locale} className={`${heading.variable} ${body.variable}`}>
       <body>
         <GoogleAnalytics />
-        <AuthProvider>
-          <Navbar />
-          <div className="pb-20 sm:pb-0">{children}</div>
-          <BottomNav />
-        </AuthProvider>
+        <I18nProvider locale={locale} dictionary={dictionary}>
+          <AuthProvider>
+            <Navbar />
+            <div className="pb-20 sm:pb-0">{children}</div>
+            <BottomNav />
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

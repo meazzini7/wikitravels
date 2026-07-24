@@ -6,10 +6,13 @@ import { signOut } from "firebase/auth";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslations } from "@/lib/i18n/i18n-context";
+import LanguageSwitcher from "./LanguageSwitcher";
 import FlamingoMascot from "./FlamingoMascot";
 
 export default function Navbar() {
   const { user, profile, loading } = useAuth();
+  const t = useTranslations("nav");
   const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function Navbar() {
           href="/enciclopedia"
           className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
         >
-          📖 Enciclopedia
+          {t("encyclopedia")}
         </Link>
         {loading ? null : user ? (
           <>
@@ -52,30 +55,30 @@ export default function Navbar() {
               href="/feed"
               className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
-              🧭 Feed
+              {t("feed")}
             </Link>
             <Link
               href="/viaggi"
               className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
-              🧳 Viaggi
+              {t("trips")}
             </Link>
             <Link
               href="/classifica"
               className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
-              🏆 Classifica
+              {t("leaderboard")}
             </Link>
             <Link
               href="/chat"
               className="hidden min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700 sm:flex"
             >
-              💬 Chat
+              {t("chat")}
             </Link>
             <Link
               href="/notifiche"
               className="relative flex min-h-[44px] items-center rounded-full px-3 text-gray-600 hover:bg-brand-50 hover:text-brand-700"
-              aria-label="Notifiche"
+              aria-label={t("notifications")}
             >
               🔔
               {hasUnread && (
@@ -91,26 +94,28 @@ export default function Navbar() {
               </span>
               {profile?.displayName ?? user.email}
             </Link>
+            <LanguageSwitcher />
             <button
               onClick={() => signOut(getFirebaseAuth())}
               className="flex min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-500 hover:bg-gray-100"
             >
-              Esci
+              {t("logout")}
             </button>
           </>
         ) : (
           <>
+            <LanguageSwitcher />
             <Link
               href="/login"
               className="flex min-h-[44px] items-center rounded-full px-3 font-semibold text-gray-600 hover:bg-brand-50 hover:text-brand-700"
             >
-              Accedi
+              {t("login")}
             </Link>
             <Link
               href="/registrati"
               className="tap-scale flex min-h-[44px] items-center rounded-full bg-brand-600 px-4 font-bold text-white shadow-pop hover:bg-brand-700"
             >
-              Registrati
+              {t("register")}
             </Link>
           </>
         )}
