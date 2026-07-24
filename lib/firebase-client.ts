@@ -2,7 +2,13 @@
 
 import { type FirebaseApp, type FirebaseOptions, getApp, getApps, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
-import { type Firestore, getFirestore } from "firebase/firestore";
+import {
+  type Firestore,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { type FirebaseStorage, getStorage } from "firebase/storage";
 
 const firebaseConfig: FirebaseOptions = {
@@ -33,8 +39,25 @@ export function getFirebaseAuth(): Auth {
   return authInstance;
 }
 
+// Cache locale persistente (IndexedDB): senza, ogni pagina caricata da zero
+// (refresh, primo accesso, link diretto) deve riaprire da capo la
+// connessione a Firestore e riscaricare tutto prima di poter mostrare
+// qualcosa, il che si percepisce come lentezza soprattutto su rete mobile.
+// Con la cache, i dati già visti si vedono subito mentre quelli freschi
+// arrivano dietro. Il fallback alla cache in memoria copre i rari browser
+// che non supportano IndexedDB (es. alcune modalità di navigazione privata).
 export function getFirebaseDb(): Firestore {
-  if (!dbInstance) dbInstance = getFirestore(getFirebaseApp());
+  if (!dbInstance) {
+    const app = getFirebaseApp();
+    try {
+      dbInstance = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      });
+    } catch (err) {
+      console.error("Cache persistente di Firestore non disponibile, uso quella in memoria:", err);
+      dbInstance = getFirestore(app);
+    }
+  }
   return dbInstance;
 }
 

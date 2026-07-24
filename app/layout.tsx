@@ -82,6 +82,16 @@ export default function RootLayout({
 
   return (
     <html lang={locale} className={`${heading.variable} ${body.variable}`}>
+      <head>
+        {/* Avvia in anticipo la connessione (DNS + TLS) verso i domini
+            esterni usati da quasi ogni pagina, così Firestore/Auth/le
+            immagini di copertina non pagano quel tempo in più al primo
+            utilizzo: è una delle cause più concrete di "lentezza percepita"
+            in un'app che dipende tanto da chiamate esterne come questa. */}
+        <link rel="preconnect" href="https://firestore.googleapis.com" />
+        <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+        <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
+      </head>
       <body>
         <GoogleAnalytics />
         <I18nProvider locale={locale} dictionary={dictionary}>
