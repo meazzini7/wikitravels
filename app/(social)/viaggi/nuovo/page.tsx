@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { doc, increment, writeBatch } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, increment, orderBy, query, writeBatch } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { generateId } from "@/lib/id";
@@ -15,12 +15,15 @@ import {
   haversineDistanceKm,
   totalTripDistanceKm,
 } from "@/lib/travel-utils";
-import { defaultInterestScores } from "@/lib/interests";
+import { defaultInterestScores, type InterestScores } from "@/lib/interests";
 import { TRIP_TYPES, TRIP_TYPE_LABELS, type TripType } from "@/lib/trip-types";
 import { notifyDreamDestinationMatches, notifyFollowersOfNewTrip } from "@/lib/social";
 import type { GeocodeResult } from "@/lib/geocoding";
+import type { PoiRating, Trip, TripStop } from "@/lib/types";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import PlaceSearch from "@/components/PlaceSearch";
+import PoiPicker from "@/components/PoiPicker";
+import InterestSliders from "@/components/InterestSliders";
 import ProgressStepper from "@/components/ui/ProgressStepper";
 import ChipToggle from "@/components/ui/ChipToggle";
 
@@ -35,6 +38,7 @@ interface DraftStop {
   lat: number;
   lng: number;
   countryCode: string;
+  poiRatings: PoiRating[];
 }
 
 const STEPS = [
@@ -64,12 +68,15 @@ const QUICK_DESTINATIONS: { name: string; lat: number; lng: number; countryCode:
 
 export default function NuovoViaggioPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editTripId = searchParams.get("edit");
   const { user, profile, loading } = useAuth();
-  const [tripId] = useState(() => generateId());
+  const [tripId] = useState(() => editTripId ?? generateId());
   const [step, setStep] = useState(1);
+  const [loadingExisting, setLoadingExisting] = useState(!!editTripId);
 
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [tripScores, setTripScores] = useState<InterestScores>(defaultInterestScores());
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [tripType, setTripType] = useState<TripType>("solo");
@@ -77,6 +84,9 @@ export default function NuovoViaggioPage() {
   const [visibility, setVisibility] = useState<"public" | "private">("public");
 
   const [stops, setStops] = useState<DraftStop[]>([]);
+  const [expandedStopId, setExpandedStopId] = useState<string | null>(null);
+  const [originalStopIds, setOriginalStopIds] = useState<string[]>([]);
+  const [originalTotalDistanceKm, setOriginalTotalDistanceKm] = useState(0);
 
   const [cover, setCover] = useState<{ url: string; author: string; link: string } | null>(null);
   const [coverLoading, setCoverLoading] = useState(false);
@@ -87,6 +97,65 @@ export default function NuovoViaggioPage() {
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // Per un viaggio nuovo, parte dai propri interessi generali come punto di
+  // partenza (restano comunque modificabili per questo specifico viaggio).
+  useEffect(() => {
+    if (!editTripId && profile) setTripScores(profile.interests ?? defaultInterestScores());
+  }, [editTripId, profile]);
+
+  // Modalità modifica: precarica il viaggio esistente e le sue tappe.
+  useEffect(() => {
+    if (!editTripId || !user) return;
+    const db = getFirebaseDb();
+    (async () => {
+      try {
+        const tripSnap = await getDoc(doc(db, "trips", editTripId));
+        if (!tripSnap.exists()) {
+          setError("Viaggio non trovato.");
+          return;
+        }
+        const existing = tripSnap.data() as Trip;
+        if (existing.authorId !== user.uid) {
+          setError("Non puoi modificare un viaggio che non è tuo.");
+          return;
+        }
+        setTitle(existing.title);
+        setTripScores(existing.scores ?? existing.authorInterests ?? defaultInterestScores());
+        setStartDate(existing.startDate);
+        setEndDate(existing.endDate);
+        setTripType(existing.tripType);
+        setCostEuro(existing.costEuro ? String(existing.costEuro) : "");
+        setVisibility(existing.visibility);
+        setOriginalTotalDistanceKm(existing.totalDistanceKm);
+        if (existing.coverImageUrl) {
+          setCover({ url: existing.coverImageUrl, author: "", link: "" });
+        }
+
+        const stopsSnap = await getDocs(
+          query(collection(db, "trips", editTripId, "stops"), orderBy("order", "asc"))
+        );
+        const loadedStops = stopsSnap.docs.map((d) => {
+          const s = d.data() as TripStop;
+          return {
+            id: s.id,
+            name: s.name,
+            lat: s.lat,
+            lng: s.lng,
+            countryCode: s.countryCode,
+            poiRatings: s.poiRatings ?? [],
+          };
+        });
+        setStops(loadedStops);
+        setOriginalStopIds(loadedStops.map((s) => s.id));
+      } catch (err) {
+        console.error("Impossibile caricare il viaggio da modificare:", err);
+        setError("Non sono riuscito a caricare il viaggio da modificare.");
+      } finally {
+        setLoadingExisting(false);
+      }
+    })();
+  }, [editTripId, user]);
 
   const totalDistance = useMemo(() => totalTripDistanceKm(stops), [stops]);
   const dateRanges = useMemo(() => {
@@ -102,7 +171,7 @@ export default function NuovoViaggioPage() {
   const homeTravelHours = homeDistanceKm !== null ? estimateTravelHours(homeDistanceKm) : null;
 
   function addStop(name: string, lat: number, lng: number, countryCode: string) {
-    setStops((prev) => [...prev, { id: generateId(), name, lat, lng, countryCode }]);
+    setStops((prev) => [...prev, { id: generateId(), name, lat, lng, countryCode, poiRatings: [] }]);
   }
 
   function addStopFromPlace(place: GeocodeResult) {
@@ -111,6 +180,10 @@ export default function NuovoViaggioPage() {
 
   function removeStop(id: string) {
     setStops((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function setStopPoiRatings(id: string, poiRatings: PoiRating[]) {
+    setStops((prev) => prev.map((s) => (s.id === id ? { ...s, poiRatings } : s)));
   }
 
   function moveStop(index: number, dir: -1 | 1) {
@@ -132,7 +205,7 @@ export default function NuovoViaggioPage() {
       const res = await fetch("/api/trips/generate-cover", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ title, description, tripId }),
+        body: JSON.stringify({ title, destinations: stops.map((s) => s.name), tripId }),
       });
       if (!res.ok) throw new Error("cover-failed");
       const data = await res.json();
@@ -153,14 +226,13 @@ export default function NuovoViaggioPage() {
       const batch = writeBatch(db);
       const tripRef = doc(db, "trips", tripId);
       const countryCodes = Array.from(new Set(stops.map((s) => s.countryCode).filter(Boolean)));
-      batch.set(tripRef, {
-        id: tripId,
+      const tripFields = {
         authorId: user.uid,
         authorDisplayName: profile?.displayName ?? user.displayName ?? user.email ?? "Viaggiatore",
         authorPhotoURL: profile?.photoURL ?? user.photoURL ?? null,
         authorInterests: profile?.interests ?? defaultInterestScores(),
+        scores: tripScores,
         title: title.trim(),
-        description: description.trim(),
         startDate,
         endDate,
         coverImageUrl: cover?.url ?? null,
@@ -171,10 +243,17 @@ export default function NuovoViaggioPage() {
         countryCodes,
         homeDistanceKm,
         homeTravelHours,
-        status: "published",
-        createdAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      };
+
+      if (editTripId) {
+        batch.update(tripRef, tripFields);
+        const removedStopIds = originalStopIds.filter((id) => !stops.some((s) => s.id === id));
+        removedStopIds.forEach((id) => batch.delete(doc(db, "trips", tripId, "stops", id)));
+      } else {
+        batch.set(tripRef, { id: tripId, status: "published", createdAt: Date.now(), ...tripFields });
+      }
+
       stops.forEach((stop, i) => {
         const range = dateRanges[i];
         batch.set(doc(db, "trips", tripId, "stops", stop.id), {
@@ -187,15 +266,23 @@ export default function NuovoViaggioPage() {
           order: i,
           startDate: range ? formatISODate(range.start) : startDate,
           endDate: range ? formatISODate(range.end) : endDate,
+          poiRatings: stop.poiRatings,
         });
       });
-      batch.update(doc(db, "users", user.uid), {
-        "stats.tripsCount": increment(1),
-        "stats.totalDistanceKm": increment(totalDistance),
-      });
+
+      if (editTripId) {
+        batch.update(doc(db, "users", user.uid), {
+          "stats.totalDistanceKm": increment(totalDistance - originalTotalDistanceKm),
+        });
+      } else {
+        batch.update(doc(db, "users", user.uid), {
+          "stats.tripsCount": increment(1),
+          "stats.totalDistanceKm": increment(totalDistance),
+        });
+      }
       await batch.commit();
 
-      if (visibility === "public") {
+      if (!editTripId && visibility === "public") {
         const tripInfo = {
           tripId,
           tripTitle: title.trim(),
@@ -212,7 +299,9 @@ export default function NuovoViaggioPage() {
 
       router.push(`/viaggi/${tripId}`);
     } catch {
-      setError("Non sono riuscito a pubblicare il viaggio. Riprova.");
+      setError(
+        editTripId ? "Non sono riuscito a salvare le modifiche. Riprova." : "Non sono riuscito a pubblicare il viaggio. Riprova."
+      );
       setPublishing(false);
     }
   }
@@ -221,11 +310,18 @@ export default function NuovoViaggioPage() {
   const canGoStep3 = stops.length >= 1;
 
   if (loading || !user) return null;
+  if (loadingExisting) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+        <div className="h-96 w-full animate-pulse rounded-3xl bg-gray-100" />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
       <h1 className="mb-4 text-center font-heading text-2xl font-bold text-gray-900">
-        Crea un nuovo viaggio ✈️
+        {editTripId ? "Modifica il tuo viaggio ✏️" : "Crea un nuovo viaggio ✈️"}
       </h1>
       <ProgressStepper steps={STEPS} current={step} />
 
@@ -248,16 +344,12 @@ export default function NuovoViaggioPage() {
             />
           </div>
           <div>
-            <label htmlFor="description" className="mb-1 block text-sm font-bold text-gray-700">
-              Descrizione
-            </label>
-            <textarea
-              id="description"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-2xl border-2 border-gray-200 px-4 py-2.5 focus:border-brand-400 focus:outline-none"
-            />
+            <span className="mb-1 block text-sm font-bold text-gray-700">💛 Interessi di questo viaggio</span>
+            <p className="mb-2 text-xs text-gray-500">
+              Non sempre coincidono con i tuoi interessi generali: usali per far trovare questo viaggio a chi cerca
+              esattamente questo tipo di esperienza.
+            </p>
+            <InterestSliders value={tripScores} onChange={setTripScores} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -387,45 +479,62 @@ export default function NuovoViaggioPage() {
           {stops.length > 0 && (
             <ol className="flex flex-col gap-2">
               {stops.map((stop, i) => (
-                <li
-                  key={stop.id}
-                  className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-gray-900">
-                      {i + 1}. {stop.name}
-                    </p>
-                    {dateRanges[i] && (
-                      <p className="text-xs text-gray-500">
-                        {formatISODate(dateRanges[i].start)} → {formatISODate(dateRanges[i].end)}
+                <li key={stop.id} className="rounded-2xl border border-gray-100 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedStopId((prev) => (prev === stop.id ? null : stop.id))}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="truncate font-bold text-gray-900">
+                        {i + 1}. {stop.name}
+                        {stop.poiRatings.length > 0 && (
+                          <span className="ml-1.5 text-xs font-semibold text-brand-600">
+                            📍 {stop.poiRatings.length}
+                          </span>
+                        )}
                       </p>
-                    )}
+                      {dateRanges[i] && (
+                        <p className="text-xs text-gray-500">
+                          {formatISODate(dateRanges[i].start)} → {formatISODate(dateRanges[i].end)}
+                        </p>
+                      )}
+                    </button>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => moveStop(i, -1)}
+                        disabled={i === 0}
+                        aria-label="Sposta su"
+                        className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => moveStop(i, 1)}
+                        disabled={i === stops.length - 1}
+                        aria-label="Sposta giù"
+                        className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        onClick={() => removeStop(stop.id)}
+                        aria-label="Rimuovi tappa"
+                        className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      onClick={() => moveStop(i, -1)}
-                      disabled={i === 0}
-                      aria-label="Sposta su"
-                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => moveStop(i, 1)}
-                      disabled={i === stops.length - 1}
-                      aria-label="Sposta giù"
-                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 disabled:opacity-30"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      onClick={() => removeStop(stop.id)}
-                      aria-label="Rimuovi tappa"
-                      className="tap-scale flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  {expandedStopId === stop.id && (
+                    <div className="mt-2 border-t border-gray-100 pt-2">
+                      <PoiPicker
+                        placeName={stop.name}
+                        value={stop.poiRatings}
+                        onChange={(ratings) => setStopPoiRatings(stop.id, ratings)}
+                      />
+                    </div>
+                  )}
                 </li>
               ))}
             </ol>

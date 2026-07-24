@@ -19,14 +19,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Token non valido" }, { status: 401 });
   }
 
-  const { title, description } = await req.json();
+  const { title, destinations } = await req.json();
   if (!title || typeof title !== "string") {
     return NextResponse.json({ error: "Titolo mancante" }, { status: 400 });
   }
+  const destinationsText = Array.isArray(destinations) ? destinations.join(", ") : "";
 
   try {
     const rawQuery = await askGemini(
-      `Titolo viaggio: "${title}". Descrizione: "${description ?? ""}". Restituisci SOLO 3-6 parole in inglese per cercare una foto suggestiva su un sito di stock photo (es. "Tuscany rolling hills sunset"). Nessuna virgolettatura, nessuna spiegazione, nessun markdown.`
+      `Titolo viaggio: "${title}". Tappe: "${destinationsText}". Restituisci SOLO 3-6 parole in inglese per cercare una foto suggestiva su un sito di stock photo (es. "Tuscany rolling hills sunset"). Nessuna virgolettatura, nessuna spiegazione, nessun markdown.`
     );
     const query = rawQuery.trim().replace(/^["']|["']$/g, "") || title;
 

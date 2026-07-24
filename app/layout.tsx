@@ -8,6 +8,7 @@ import { getDictionary } from "@/lib/i18n/dictionary";
 import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import OnboardingGuard from "@/components/OnboardingGuard";
 
 const heading = Baloo_2({
   subsets: ["latin"],
@@ -84,6 +85,7 @@ export default function RootLayout({
         <GoogleAnalytics />
         <I18nProvider locale={locale} dictionary={dictionary}>
           <AuthProvider>
+            <OnboardingGuard />
             <Navbar />
             <div className="pb-20 sm:pb-0">{children}</div>
             <BottomNav />

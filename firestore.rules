@@ -71,6 +71,26 @@ service cloud.firestore {
         allow delete: if request.auth != null
           && request.auth.uid == resource.data.authorId;
       }
+
+      match /participants/{participantId} {
+        allow read: if request.auth != null;
+        // Solo il proprietario del viaggio può invitare, e sempre con
+        // stato "invited" (non può auto-accettare per conto altrui).
+        allow create: if request.auth != null
+          && request.auth.uid == get(/databases/$(database)/documents/trips/$(tripId)).data.authorId
+          && request.resource.data.status == 'invited';
+        // L'invitato può solo accettare il proprio invito (nessun altro
+        // campo modificabile).
+        allow update: if request.auth != null && request.auth.uid == participantId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'accepted';
+        // L'invitato può rifiutare/lasciare il viaggio, il proprietario
+        // può rimuovere un partecipante.
+        allow delete: if request.auth != null && (
+          request.auth.uid == participantId
+          || request.auth.uid == get(/databases/$(database)/documents/trips/$(tripId)).data.authorId
+        );
+      }
     }
 
     match /articles/{articleId} {
