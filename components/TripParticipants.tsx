@@ -21,6 +21,20 @@ interface TripParticipantsProps {
   isOwner: boolean;
 }
 
+// Prima questi errori finivano solo in console.error: invisibile per chi
+// non apre gli strumenti sviluppatore, quindi "clicco invita e non succede
+// nulla" restava impossibile da capire. "permission-denied" in particolare
+// è il sintomo tipico di regole di sicurezza Firestore non aggiornate sul
+// progetto Firebase live (questo repo le tiene solo come riferimento: vanno
+// incollate a mano nella Console Firebase, non si aggiornano da sole).
+function mapFirestoreError(err: unknown): string {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === "permission-denied") {
+    return "Non hai i permessi per farlo. Se il problema persiste, potrebbero servire le regole Firestore aggiornate sul progetto.";
+  }
+  return "Non sono riuscito a completare l'operazione. Riprova.";
+}
+
 // Invitare qualcuno a un viaggio: l'invitato riceve una notifica, accetta
 // (o rifiuta) direttamente da qui, e da quel momento compare nell'elenco
 // dei partecipanti del viaggio.
@@ -32,6 +46,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [inviting, setInviting] = useState<string | null>(null);
   const [responding, setResponding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   async function reload() {
@@ -64,6 +79,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
   async function invite(target: UserProfile) {
     if (!user || !profile) return;
     setInviting(target.uid);
+    setError(null);
     try {
       await inviteTripParticipant(
         tripId,
@@ -76,6 +92,7 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
       await reload();
     } catch (err) {
       console.error("Impossibile invitare l'utente:", err);
+      setError(mapFirestoreError(err));
     } finally {
       setInviting(null);
     }
@@ -84,12 +101,14 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
   async function respond(accept: boolean) {
     if (!user) return;
     setResponding(true);
+    setError(null);
     try {
       if (accept) await acceptTripInvite(tripId, user.uid);
       else await declineTripInvite(tripId, user.uid);
       await reload();
     } catch (err) {
       console.error("Impossibile rispondere all'invito:", err);
+      setError(mapFirestoreError(err));
     } finally {
       setResponding(false);
     }
@@ -104,6 +123,10 @@ export default function TripParticipants({ tripId, tripTitle, isOwner }: TripPar
   return (
     <div className="card-surface mb-6 p-4 sm:p-5">
       <h2 className="mb-3 font-heading text-sm font-bold text-gray-700">👥 Partecipanti</h2>
+
+      {error && (
+        <p className="mb-3 rounded-2xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">{error}</p>
+      )}
 
       {myInvite && (
         <div className="mb-3 rounded-2xl border-2 border-brand-200 bg-brand-50 p-3 text-sm">
