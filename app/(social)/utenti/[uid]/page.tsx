@@ -28,6 +28,7 @@ export default function PublicProfilePage() {
   const [worldStats, setWorldStats] = useState<VisitedWorldStats>({ citiesCount: 0, countriesCount: 0 });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isFriend, setIsFriend] = useState(false);
+  const [sharedStats, setSharedStats] = useState<{ count: number; km: number } | null>(null);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -66,6 +67,60 @@ export default function PublicProfilePage() {
       .then(setIsFriend)
       .catch((err) => console.error("Impossibile verificare l'amicizia:", err));
   }, [user, params.uid]);
+
+  // Viaggi e km fatti insieme: si parte SEMPRE dai viaggi a cui il
+  // visitatore (io) ha accesso (i miei autorati + quelli a cui partecipo),
+  // e per ciascuno si controlla se l'altro utente è l'autore o un
+  // partecipante accettato. Il verso opposto (partire dai viaggi
+  // dell'altro utente) non funzionerebbe per i suoi viaggi privati, che le
+  // regole Firestore non permettono di interrogare dall'esterno.
+  useEffect(() => {
+    if (!user || !viewerProfile || user.uid === params.uid) {
+      setSharedStats(null);
+      return;
+    }
+    const targetUid = params.uid;
+    (async () => {
+      try {
+        const db = getFirebaseDb();
+        const authoredSnap = await getDocs(query(collection(db, "trips"), where("authorId", "==", user.uid)));
+        const authoredTrips = authoredSnap.docs.map((d) => d.data() as Trip);
+
+        const participantIds = viewerProfile.participantTripIds ?? [];
+        const participantSnaps = await Promise.all(
+          participantIds.map((id) =>
+            getDoc(doc(db, "trips", id)).catch(() => null)
+          )
+        );
+        const participantTrips = participantSnaps
+          .filter((s): s is NonNullable<typeof s> => !!s && s.exists())
+          .map((s) => s.data() as Trip);
+
+        const viewerTrips = [...authoredTrips, ...participantTrips];
+
+        const checks = await Promise.all(
+          viewerTrips.map(async (trip) => {
+            if (trip.authorId === targetUid) return trip;
+            try {
+              const pSnap = await getDoc(doc(db, "trips", trip.id, "participants", targetUid));
+              if (pSnap.exists() && (pSnap.data() as { status?: string }).status === "accepted") return trip;
+            } catch {
+              // Non leggibile: non lo contiamo come condiviso.
+            }
+            return null;
+          })
+        );
+        const shared = checks.filter((t): t is Trip => !!t);
+        setSharedStats({
+          count: shared.length,
+          km: shared.reduce((sum, t) => sum + (t.totalDistanceKm ?? 0), 0),
+        });
+      } catch (err) {
+        console.error("Impossibile calcolare i viaggi fatti insieme:", err);
+        setSharedStats(null);
+      }
+    })();
+  }, [user, viewerProfile, params.uid]);
 
   if (loadingProfile) {
     return (
@@ -134,6 +189,20 @@ export default function PublicProfilePage() {
           >
             💬 Scrivi un messaggio
           </Link>
+        </div>
+      )}
+
+      {!isSelf && sharedStats && sharedStats.count > 0 && (
+        <div className="card-surface mb-6 flex items-center gap-3 p-4 sm:p-5">
+          <span className="text-2xl" aria-hidden>
+            🧑‍🤝‍🧑
+          </span>
+          <div>
+            <p className="font-heading font-bold text-gray-900">
+              {sharedStats.count} {sharedStats.count === 1 ? "viaggio fatto insieme" : "viaggi fatti insieme"}
+            </p>
+            <p className="text-sm text-gray-500">{sharedStats.km.toFixed(0)} km percorsi insieme a @{profile.nickname}</p>
+          </div>
         </div>
       )}
 

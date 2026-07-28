@@ -246,3 +246,8 @@ export const ALPHA2_TO_ALPHA3: Record<string, string> = {
 export function alpha2ToAlpha3(code: string): string | null {
   return ALPHA2_TO_ALPHA3[code.toLowerCase()] ?? null;
 }
+
+// Numero di nazioni/territori riconosciuti dalla mappa (stesso elenco
+// usato per colorare il mappamondo): denominatore per la percentuale di
+// mondo visitato dalla community mostrata in home.
+export const TOTAL_COUNTRIES = new Set(Object.values(ALPHA2_TO_ALPHA3)).size;

@@ -8,6 +8,7 @@ import { collection, getCountFromServer, getDocs, limit, orderBy, query, where }
 import { getFirebaseDb } from "@/lib/firebase-client";
 import { useAuth } from "@/lib/auth-context";
 import { tripCountsByCountry } from "@/lib/world-stats";
+import { TOTAL_COUNTRIES } from "@/lib/iso-countries";
 import { useTranslations } from "@/lib/i18n/i18n-context";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import EmptyState from "@/components/ui/EmptyState";
@@ -56,6 +57,7 @@ export default function HomePageContent() {
 
   const countryCounts = useMemo(() => tripCountsByCountry(trips), [trips]);
   const countriesReached = Object.keys(countryCounts).length;
+  const worldPercent = Math.round((countriesReached / TOTAL_COUNTRIES) * 100);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
@@ -132,7 +134,14 @@ export default function HomePageContent() {
 
       <section className="mb-8">
         <div className="card-surface p-4 sm:p-6">
-          <h2 className="mb-1 font-heading text-lg font-bold text-gray-900">{t("worldTitle")}</h2>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-heading text-lg font-bold text-gray-900">{t("worldTitle")}</h2>
+            {countriesReached > 0 && (
+              <span className="rounded-full bg-lagoon-50 px-3 py-1 text-xs font-bold text-lagoon-700">
+                🌍 {worldPercent}% del mondo esplorato dalla community
+              </span>
+            )}
+          </div>
           <p className="mb-3 text-sm text-gray-500">{t("worldSubtitle")}</p>
           <WorldMap values={countryCounts} mode="gradient" className="h-72 w-full rounded-2xl" />
         </div>

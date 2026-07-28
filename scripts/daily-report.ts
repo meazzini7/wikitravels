@@ -1,4 +1,5 @@
 import { getAdminDb } from "../lib/firebase-admin";
+import { sendEmail } from "../lib/server/resend";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -116,29 +117,16 @@ export async function sendDailyReportEmail() {
   const data = await computeDailyReport();
   const html = renderReportHtml(data);
 
-  const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.ADMIN_REPORT_EMAIL;
-  if (!apiKey || !to) {
-    console.error(
-      "RESEND_API_KEY o ADMIN_REPORT_EMAIL non configurate: report calcolato ma non inviato."
-    );
+  if (!to) {
+    console.error("ADMIN_REPORT_EMAIL non configurata: report calcolato ma non inviato.");
     return { sent: false, data };
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: process.env.RESEND_FROM_EMAIL ?? "WikiTravels <onboarding@resend.dev>",
-      to,
-      subject: `WikiTravels — report giornaliero (${new Date().toISOString().slice(0, 10)})`,
-      html,
-    }),
+  const sent = await sendEmail({
+    to,
+    subject: `WikiTravels — report giornaliero (${new Date().toISOString().slice(0, 10)})`,
+    html,
   });
-
-  if (!res.ok) {
-    console.error("Invio report fallito:", await res.text());
-    return { sent: false, data };
-  }
-  return { sent: true, data };
+  return { sent, data };
 }

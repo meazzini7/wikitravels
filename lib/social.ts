@@ -17,9 +17,39 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { getFirebaseDb } from "./firebase-client";
+import { getFirebaseDb, getFirebaseAuth } from "./firebase-client";
 import { destinationMatchKeys } from "./dream-destinations";
-import type { Trip, UserProfile } from "./types";
+import type { Notification, Trip, UserProfile } from "./types";
+
+// Il portale non manda push notification (non è un'app): ogni notifica
+// in-app avvisa anche via email chi la riceve, tramite un endpoint
+// server-side (serve il token per evitare abusi, e l'indirizzo email di
+// un altro utente non è mai esposto al client). Fallisce in silenzio:
+// un problema con l'invio dell'email non deve mai bloccare l'azione
+// principale (seguire, invitare, pubblicare un viaggio...).
+async function notifyByEmail(payload: {
+  targetUid: string;
+  type: Notification["type"];
+  fromUid?: string | null;
+  fromNickname?: string | null;
+  tripId?: string | null;
+  tripTitle?: string | null;
+  articleSlug?: string | null;
+  articleTitle?: string | null;
+  destinationName?: string | null;
+}) {
+  try {
+    const token = await getFirebaseAuth().currentUser?.getIdToken();
+    if (!token) return;
+    await fetch("/api/notify/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error("Impossibile inviare l'email di notifica:", err);
+  }
+}
 
 export async function followUser(
   currentUid: string,
@@ -52,6 +82,7 @@ export async function followUser(
     createdAt: Date.now(),
     read: false,
   });
+  notifyByEmail({ targetUid, type: "follow", fromUid: currentUid, fromNickname: currentNickname });
 }
 
 export async function unfollowUser(currentUid: string, targetUid: string) {
@@ -76,8 +107,9 @@ export async function notifyFollowersOfNewTrip(authorUid: string, trip: NewTripI
   const db = getFirebaseDb();
   const followsSnap = await getDocs(query(collection(db, "follows"), where("followingId", "==", authorUid)));
   await Promise.all(
-    followsSnap.docs.map((followDoc) =>
-      addDoc(collection(db, "users", followDoc.data().followerId, "notifications"), {
+    followsSnap.docs.map(async (followDoc) => {
+      const targetUid = followDoc.data().followerId;
+      await addDoc(collection(db, "users", targetUid, "notifications"), {
         type: "trip",
         fromUid: authorUid,
         fromDisplayName: trip.authorNickname,
@@ -89,8 +121,16 @@ export async function notifyFollowersOfNewTrip(authorUid: string, trip: NewTripI
         destinationName: null,
         createdAt: Date.now(),
         read: false,
-      })
-    )
+      });
+      notifyByEmail({
+        targetUid,
+        type: "trip",
+        fromUid: authorUid,
+        fromNickname: trip.authorNickname,
+        tripId: trip.tripId,
+        tripTitle: trip.tripTitle,
+      });
+    })
   );
 }
 
@@ -116,12 +156,13 @@ export async function notifyDreamDestinationMatches(
   await Promise.all(
     snap.docs
       .filter((d) => d.id !== authorUid)
-      .map((d) => {
+      .map(async (d) => {
         const target = d.data() as UserProfile;
         const matched = target.dreamDestinations?.find((dream) =>
           destinationMatchKeys(dream.name, dream.countryCode).some((k) => keys.includes(k))
         );
-        return addDoc(collection(db, "users", d.id, "notifications"), {
+        const destinationName = matched?.name ?? null;
+        await addDoc(collection(db, "users", d.id, "notifications"), {
           type: "dream_trip",
           fromUid: authorUid,
           fromDisplayName: trip.authorNickname,
@@ -130,9 +171,18 @@ export async function notifyDreamDestinationMatches(
           tripTitle: trip.tripTitle,
           articleSlug: null,
           articleTitle: null,
-          destinationName: matched?.name ?? null,
+          destinationName,
           createdAt: Date.now(),
           read: false,
+        });
+        notifyByEmail({
+          targetUid: d.id,
+          type: "dream_trip",
+          fromUid: authorUid,
+          fromNickname: trip.authorNickname,
+          tripId: trip.tripId,
+          tripTitle: trip.tripTitle,
+          destinationName,
         });
       })
   );
@@ -191,6 +241,14 @@ export async function inviteTripParticipant(
     destinationName: null,
     createdAt: Date.now(),
     read: false,
+  });
+  notifyByEmail({
+    targetUid: target.uid,
+    type: "trip_invite",
+    fromUid: inviter.uid,
+    fromNickname: inviter.nickname,
+    tripId,
+    tripTitle,
   });
 }
 

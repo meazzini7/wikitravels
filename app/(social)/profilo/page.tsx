@@ -67,13 +67,21 @@ export default function ProfiloPage() {
         const authoredTrips = authoredSnap.docs.map((d) => d.data() as Trip);
 
         // Viaggi altrui a cui si partecipa (invito accettato): contano
-        // anch'essi per il mondo visitato, non solo quelli creati in prima persona.
+        // anch'essi per il mondo visitato, non solo quelli creati in prima
+        // persona. Ogni lettura è isolata nel proprio catch: un singolo
+        // viaggio non più leggibile (es. regole non ancora aggiornate sul
+        // progetto live) non deve azzerare tutte le statistiche.
         const participantTripIds = profile.participantTripIds ?? [];
         const participantSnaps = await Promise.all(
-          participantTripIds.map((id) => getDoc(doc(db, "trips", id)))
+          participantTripIds.map((id) =>
+            getDoc(doc(db, "trips", id)).catch((err) => {
+              console.error(`Impossibile leggere il viaggio partecipato ${id}:`, err);
+              return null;
+            })
+          )
         );
         const participantTrips = participantSnaps
-          .filter((s) => s.exists())
+          .filter((s): s is NonNullable<typeof s> => !!s && s.exists())
           .map((s) => s.data() as Trip);
 
         const allTrips = [...authoredTrips, ...participantTrips];
@@ -228,7 +236,7 @@ export default function ProfiloPage() {
           <StatTile icon="🏙️" value={worldStats.citiesCount} label="Città" tone="lagoon" />
           <StatTile icon="🗺️" value={worldStats.countriesCount} label="Nazioni" tone="lagoon" />
         </div>
-        <WorldMap values={visitedMap} mode="binary" className="h-56 w-full rounded-2xl" />
+        <WorldMap values={visitedMap} mode="binary" fitToValues className="h-56 w-full rounded-2xl" />
         {worldStats.citiesCount === 0 && (
           <p className="mt-3 text-center text-sm text-gray-500">
             La mappa si colora man mano che pubblichi viaggi con delle tappe ✈️
