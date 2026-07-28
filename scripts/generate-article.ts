@@ -14,6 +14,7 @@ import { getAdminDb } from "../lib/firebase-admin";
 import { INTEREST_KEYS } from "../lib/interests";
 import { askGemini } from "../lib/server/gemini";
 import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
+import { sendNotificationEmailByUid } from "../lib/server/notification-email";
 import { destinationMatchKeys } from "../lib/dream-destinations";
 import type { UserProfile } from "../lib/types";
 
@@ -141,12 +142,13 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
   try {
     const snap = await getAdminDb().collection("users").where("dreamDestinationKeys", "array-contains", key).get();
     await Promise.all(
-      snap.docs.map((d) => {
+      snap.docs.map(async (d) => {
         const target = d.data() as UserProfile;
         const matched = target.dreamDestinations?.find((dream) =>
           destinationMatchKeys(dream.name, dream.countryCode).includes(key)
         );
-        return getAdminDb().collection("users").doc(d.id).collection("notifications").add({
+        const matchedName = matched?.name ?? destinationName;
+        await getAdminDb().collection("users").doc(d.id).collection("notifications").add({
           type: "dream_article",
           fromUid: null,
           fromDisplayName: null,
@@ -155,9 +157,18 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
           tripTitle: null,
           articleSlug: article.slug,
           articleTitle: article.title,
-          destinationName: matched?.name ?? destinationName,
+          destinationName: matchedName,
           createdAt: Date.now(),
           read: false,
+        });
+        await sendNotificationEmailByUid(d.id, {
+          type: "dream_article",
+          fromUid: null,
+          articleSlug: article.slug,
+          articleTitle: article.title,
+          destinationName: matchedName,
+          tripId: null,
+          tripTitle: null,
         });
       })
     );

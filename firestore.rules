@@ -50,8 +50,15 @@ service cloud.firestore {
       // viaggio è pubblico e pubblicato; sempre visibile al proprietario.
       // Tappe/mappa (subcollection sotto) richiedono invece login anche per
       // i viaggi pubblici; i viaggi privati non sono mai visibili ad altri.
+      // Un partecipante che ha accettato l'invito deve poter leggere il
+      // viaggio anche se è privato (altrimenti non vedrebbe mai i
+      // dettagli del viaggio a cui ha aderito, e i suoi km/città/nazioni
+      // condivisi con l'autore non sarebbero calcolabili).
       allow read: if (resource.data.visibility == 'public' && resource.data.status == 'published')
-        || (request.auth != null && request.auth.uid == resource.data.authorId);
+        || (request.auth != null && request.auth.uid == resource.data.authorId)
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/trips/$(tripId)/participants/$(request.auth.uid))
+            && get(/databases/$(database)/documents/trips/$(tripId)/participants/$(request.auth.uid)).data.status == 'accepted');
       allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
 
