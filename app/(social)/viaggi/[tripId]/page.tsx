@@ -139,6 +139,14 @@ export default function TripDetailPage() {
         </div>
       </div>
 
+      <Link
+        href={`/utenti/${trip.authorId}`}
+        className="tap-scale mb-4 flex items-center gap-2 text-sm font-bold text-brand-700 hover:underline"
+      >
+        <span aria-hidden>🦩</span>
+        Viaggio di @{trip.authorNickname ?? trip.authorDisplayName}
+      </Link>
+
       <div className="mb-4 grid grid-cols-4 gap-2 text-center">
         <div className="rounded-2xl bg-brand-50 px-2 py-2.5">
           <p className="font-heading text-sm font-extrabold text-brand-700">{trip.totalDistanceKm.toFixed(0)}</p>
