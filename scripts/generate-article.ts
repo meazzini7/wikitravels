@@ -196,45 +196,49 @@ export async function generateArticle() {
     return null;
   }
 
-  const masterPrompt = `Agisci come un travel blogger di fama internazionale e uno specialista SEO. Scrivi un articolo enciclopedico completo, dettagliato e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe}).
+  const masterPrompt = `Agisci come un travel writer di fama internazionale che scrive per una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe}).
 
-Tono: caloroso, evocativo, esperto ma amichevole, con qualche emoji pertinente (✈️🌍🏖️🍽️🏨). Scrivi in italiano, frasi scorrevoli, paragrafi brevi (max 4-5 righe), senza ripetizioni.
+STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi. Usa un lessico ricco, preciso ed evocativo, varia la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto): sostituiscili con dettagli specifici e originali che dimostrino conoscenza reale del posto. Attingi quando pertinente a storia, cultura, tradizioni locali, piccoli aneddoti o curiosità poco note: servono ad ampliare gli argomenti trattati, non solo a descrivere cosa vedere.
+
+PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso articolo, intrecciando naturalmente spunti per ciascuno senza dedicare sezioni separate: chi viaggia in coppia, chi in famiglia con bambini, chi da solo/a, chi cerca lusso e comfort, chi viaggia con budget ridotto, chi cerca adrenalina e chi cerca solo relax o ispirazione culturale. Ogni tipo di viaggiatore deve trovare almeno un dettaglio pensato per lui.
+
+Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
 Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
 
 <h2>Perché scegliere ${dest.name} per un ${vibe}</h2>
-<p>Paragrafo introduttivo coinvolgente (5-8 righe): atmosfera, cosa rende unica la destinazione per questo tipo di viaggio.</p>
+<p>Paragrafo introduttivo denso e coinvolgente (10-14 righe): apri con una scena concreta e sensoriale (un momento, un luogo, un dettaglio che catturi l'atmosfera), poi intreccia cenni storici o culturali rilevanti, cosa rende unica la destinazione per questo tipo di viaggio, e perché diversi tipi di viaggiatori vi troverebbero qualcosa di prezioso.</p>
 
 [IMG_LANDMARK: 3-5 parole inglesi del monumento o paesaggio più iconico]
 
 <h2>Quando andare</h2>
-<p>Periodo migliore, clima, eventuali eventi o festival stagionali da non perdere.</p>
+<p>Periodo migliore mese per mese o per stagione, clima e cosa aspettarsi (temperature, affluenza turistica, prezzi), eventi, festival o ricorrenze locali da non perdere, con almeno un consiglio su quando evitare la folla.</p>
 
 <h2>Cosa vedere: le tappe imperdibili</h2>
 <ul>
-<li><b>Nome del luogo:</b> descrizione in 1-2 righe.</li>
-(esattamente 5 voci in totale, ognuna con nome in grassetto e breve descrizione)
+<li><b>Nome del luogo:</b> descrizione vivida in 2-4 righe, con un dettaglio storico, architettonico o culturale che vada oltre l'ovvio.</li>
+(esattamente 6 voci in totale, ognuna con nome in grassetto e descrizione ricca, variando i tipi di luogo: monumenti, natura, quartieri, panorami, luoghi meno noti)
 </ul>
 
 [IMG_ACTIVITY: 3-5 parole inglesi dell'attività o luogo più caratteristico]
 
 <h2>Cosa fare: esperienze da vivere</h2>
 <ul>
-<li><b>Nome esperienza:</b> descrizione in 1-2 righe.</li>
-(esattamente 4 voci in totale)
+<li><b>Nome esperienza:</b> descrizione vivida in 2-3 righe.</li>
+(esattamente 5 voci in totale, pensate per profili di viaggiatore diversi: un'esperienza adrenalinica, una romantica, una adatta alle famiglie, una culturale/immersiva, una all'insegna del relax)
 </ul>
 
 <h2>Dove mangiare: la cucina locale</h2>
-<p>Breve introduzione alla cucina locale (2-3 righe).</p>
+<p>Introduzione golosa e culturalmente informata alla cucina locale, incluse le sue radici e influenze (3-5 righe).</p>
 <ul>
-<li><b>Piatto o specialità:</b> descrizione golosa in 1-2 righe.</li>
-(esattamente 3 voci in totale; resta generico su locali/ristoranti specifici, es. "un mercato locale", non inventare nomi propri)
+<li><b>Piatto o specialità:</b> descrizione golosa e sensoriale in 2-3 righe (ingredienti, provenienza, quando/come si mangia tradizionalmente).</li>
+(esattamente 4 voci in totale; resta generico su locali/ristoranti specifici, es. "un mercato locale", non inventare nomi propri)
 </ul>
 
 [IMG_FOOD: 3-5 parole inglesi di un piatto tipico o mercato locale]
 
 <h2>Dove dormire e come muoversi</h2>
-<p>Zone/quartieri consigliati per dormire in base al tipo di viaggio, e come muoversi in loco (mezzi pubblici, noleggio, a piedi...).</p>
+<p>Zone/quartieri consigliati per dormire in base al tipo di viaggio (dal budget al lusso), atmosfera di ciascuna zona, e come muoversi in loco (mezzi pubblici, noleggio, a piedi, app utili, insidie da evitare).</p>
 
 <h2>Budget indicativo</h2>
 <table><tr><th>Voce di spesa</th><th>Budget stimato (a persona)</th></tr>
@@ -245,16 +249,16 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
 <tr><td><b>Totale indicativo (una settimana)</b></td><td><b>...</b></td></tr>
 </table>
 
-<div class="secret-spot">💡 <b>IL SEGRETO DEL LOCAL:</b> un consiglio pratico e poco conosciuto, specifico e utile (2-3 righe), quello che solo chi conosce bene il posto potrebbe dare.</div>
+<div class="secret-spot">💡 <b>IL SEGRETO DEL LOCAL:</b> un consiglio pratico e poco conosciuto, specifico e utile (3-4 righe), quello che solo chi conosce bene il posto potrebbe dare, idealmente qualcosa che non si trova nelle guide standard.</div>
 
 <h2>Un'ultima cosa prima di partire</h2>
-<p>Paragrafo di chiusura ispirazionale (3-4 righe) che invita il lettore a organizzare questo viaggio.</p>
+<p>Paragrafo di chiusura ispirazionale (5-7 righe), con un tono quasi narrativo, che invita il lettore a immaginarsi già lì e a organizzare questo viaggio.</p>
 
 <p><em>⚠️ Le informazioni su prezzi, orari e periodi indicati sono indicative e possono cambiare: verifica sempre le fonti ufficiali prima di partire.</em></p>`;
 
   const rawContent = await askGemini(masterPrompt);
   let content = stripCodeFence(rawContent);
-  if (content.length < 500) {
+  if (content.length < 2000) {
     throw new Error(
       `Contenuto generato troppo corto o vuoto (${content.length} caratteri dopo la pulizia, ${rawContent.length} prima). Anteprima grezza: ${rawContent.slice(0, 300)}`
     );
