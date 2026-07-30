@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "Enciclopedia dei viaggi",
   description:
     "Guide di viaggio su destinazioni di tutto il mondo: cosa vedere, dove mangiare e i segreti dei local, aggiornate ogni giorno.",
+  alternates: { canonical: "/enciclopedia" },
 };
 
 async function getArticles(): Promise<Article[]> {
