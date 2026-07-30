@@ -104,9 +104,21 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     description: article.displayMetaDescription,
     image: article.coverImageUrl ? [article.coverImageUrl] : undefined,
     datePublished: publishedDate,
+    dateModified: publishedDate,
+    inLanguage: locale,
     author: { "@type": "Organization", name: "WikiTravels" },
     publisher: { "@type": "Organization", name: "WikiTravels" },
     mainEntityOfPage: `${siteUrl}/enciclopedia/${article.slug}`,
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "WikiTravels", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "Enciclopedia", item: `${siteUrl}/enciclopedia` },
+      { "@type": "ListItem", position: 3, name: article.displayTitle, item: articleUrl },
+    ],
   };
 
   return (
@@ -115,6 +127,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* eslint-disable-next-line react/no-danger */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {article.coverImageUrl && (
         <div className="relative mb-6 h-64 w-full overflow-hidden rounded-3xl shadow-soft sm:h-80">
