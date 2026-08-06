@@ -15,6 +15,8 @@ import { INTEREST_KEYS } from "../lib/interests";
 import { askGemini } from "../lib/server/gemini";
 import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
 import { sendNotificationEmailByUid } from "../lib/server/notification-email";
+import { postToFacebookPage, postToInstagram } from "../lib/server/social-post";
+import { getSiteUrl } from "../lib/site-url";
 import { destinationMatchKeys } from "../lib/dream-destinations";
 import type { UserProfile } from "../lib/types";
 
@@ -99,16 +101,18 @@ async function pickNextDestination(): Promise<Dest> {
 //    far fallire l'intera generazione.
 // ------------------------------------------------------------------
 async function generateMetadata(title: string, dest: string, vibe: string) {
-  const prompt = `Sei un esperto di viaggi e SEO. Per il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}):
+  const prompt = `Sei un esperto di viaggi, SEO e social media. Per il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}):
 1. Assegna un punteggio da 0 a 10 per ciascuno di questi interessi: ${INTEREST_KEYS.join(", ")}.
 2. Scrivi un meta title SEO accattivante, MAX 60 caratteri.
 3. Scrivi una meta description SEO persuasiva, MAX 155 caratteri.
+4. Scrivi una didascalia per un post Facebook/Instagram che invogli a leggere l'articolo su ${dest}: massimo 3-4 frasi brevi, tono caldo ed entusiasta da vero appassionato di viaggi (non da ufficio marketing), con 1-2 emoji pertinenti ma senza esagerare, SENZA hashtag e SENZA link (il link viene aggiunto separatamente dal codice).
 Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa struttura:
-{"scores": {${INTEREST_KEYS.map((k) => `"${k}": 0`).join(", ")}}, "seo": {"metaTitle": "...", "metaDescription": "..."}}`;
+{"scores": {${INTEREST_KEYS.map((k) => `"${k}": 0`).join(", ")}}, "seo": {"metaTitle": "...", "metaDescription": "..."}, "socialCaption": "..."}`;
 
   const fallback = {
     scores: Object.fromEntries(INTEREST_KEYS.map((k) => [k, 5])),
     seo: { metaTitle: title.slice(0, 60), metaDescription: title.slice(0, 155) },
+    socialCaption: `Nuovo articolo su ${dest}! 🌍 Scoprilo sull'Enciclopedia di WikiTravels.`,
   };
 
   try {
@@ -124,9 +128,13 @@ Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa s
         metaTitle: parsed?.seo?.metaTitle ?? fallback.seo.metaTitle,
         metaDescription: parsed?.seo?.metaDescription ?? fallback.seo.metaDescription,
       },
+      socialCaption:
+        typeof parsed?.socialCaption === "string" && parsed.socialCaption.trim()
+          ? parsed.socialCaption.trim()
+          : fallback.socialCaption,
     };
   } catch (err) {
-    console.error("Impossibile generare punteggi/meta SEO, uso i default:", err);
+    console.error("Impossibile generare punteggi/meta SEO/didascalia social, uso i default:", err);
     return fallback;
   }
 }
@@ -271,7 +279,7 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
   // l'unico <img> possibile è quello con URL Unsplash valido inserito sotto.
   content = content.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/<img[^>]*>/gi, "");
 
-  const { scores, seo } = await generateMetadata(title, dest.name, vibe);
+  const { scores, seo, socialCaption } = await generateMetadata(title, dest.name, vibe);
 
   // Copertina
   const cover = await fetchAndUploadImage(dest.keyword);
@@ -306,6 +314,21 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
   });
 
   await notifyDreamDestinationMatches(dest.name, { slug, title });
+
+  // Pubblicazione sui social: un fallimento qui (chiavi non configurate,
+  // token scaduto...) non deve mai far sembrare fallita la generazione
+  // dell'articolo, che a questo punto è già salvato e online.
+  const articleUrl = `${getSiteUrl()}/enciclopedia/${slug}`;
+  await Promise.all([
+    postToFacebookPage({ message: socialCaption, link: articleUrl }).catch((err) =>
+      console.error("Post Facebook fallito:", err)
+    ),
+    cover
+      ? postToInstagram({ imageUrl: cover.url, caption: `${socialCaption}\n\n🔗 Link in bio` }).catch((err) =>
+          console.error("Post Instagram fallito:", err)
+        )
+      : Promise.resolve(),
+  ]);
 
   console.log(`✅ Articolo pubblicato: ${title} (${slug})`);
   return { title, slug };

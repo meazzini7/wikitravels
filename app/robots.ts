@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: ["/", "/enciclopedia", "/info"],
         disallow: [
           "/api/",
+          "/admin",
           "/chat",
           "/notifiche",
           "/profilo",
