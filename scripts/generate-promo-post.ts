@@ -97,7 +97,11 @@ async function writeCaption(angle: Angle): Promise<string> {
 
 L'argomento di oggi è: ${angle.context}.
 
-Il post deve: invogliare chi legge a scoprire/provare questa cosa sul portale, essere breve (massimo 5-6 frasi brevi), avere un tono caldo, autentico ed entusiasta, usare al massimo 1-2 emoji pertinenti senza esagerare. NON usare hashtag. NON usare markdown. NON includere link (viene aggiunto separatamente dal codice). Scrivi in italiano. Rispondi SOLO con il testo del post, niente altro.`;
+Il post deve: invogliare chi legge a scoprire/provare questa cosa sul portale, essere breve (massimo 5-6 frasi brevi), avere un tono caldo, autentico ed entusiasta.
+
+FORMATO (fondamentale, come i migliori post di viaggio su Instagram/Facebook, mai un blocco di testo fitto): paragrafi cortissimi, 1-2 frasi ciascuno, SEMPRE separati da una riga vuota (vero a capo "\n\n", non descritto a parole). Usa qualche emoji pertinente sparsa nel testo come punto di riferimento visivo, non solo una alla fine, senza esagerare. Deve leggersi comodamente scorrendo veloce col pollice.
+
+NON usare hashtag. NON usare markdown. NON includere link (viene aggiunto separatamente dal codice). Scrivi in italiano. Rispondi SOLO con il testo del post, niente altro.`;
 
   const fallback = "Oggi vi racconto una cosa di WikiTravels che mi piace tantissimo... scopritela anche voi! 🌍";
 
