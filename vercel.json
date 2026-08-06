@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/generate-article",
-      "schedule": "0 19 * * *"
+      "schedule": "30 6 * * *"
     },
     {
       "path": "/api/cron/daily-report",
