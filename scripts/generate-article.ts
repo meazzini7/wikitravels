@@ -208,8 +208,12 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
 export async function generateArticle() {
   const dest = await pickNextDestination();
   const vibe = VIBES[Math.floor(Math.random() * VIBES.length)];
-  const title = `${dest.name}: ${vibe.label}`;
-  const slug = title
+  // internalKey: identificatore prevedibile (destinazione+tema) usato SOLO
+  // per slug/URL e anti-duplicati. Il titolo mostrato ai lettori \u00e8 invece
+  // scritto dall'AI (vedi masterPrompt sotto) per essere un vero titolo
+  // editoriale, vario da un articolo all'altro, non un template ripetitivo.
+  const internalKey = `${dest.name}: ${vibe.label}`;
+  const slug = internalKey
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
@@ -221,7 +225,9 @@ export async function generateArticle() {
     return null;
   }
 
-  const masterPrompt = `Agisci come un travel writer di fama internazionale che scrive per una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}).
+  const masterPrompt = `Agisci come il caporedattore di una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente sul viaggio "${internalKey}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}).
+
+TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo editoriale originale per questo pezzo, come lo scriverebbe una vera redazione con decine di firme diverse, ognuna con un proprio stile. NON usare MAI il formato letterale "Destinazione: tema" (es. "Roma: trekking estremo") che è un template, non un titolo. Varia radicalmente la struttura da un articolo all'altro: a volte una domanda, a volte un'affermazione decisa, a volte una frase evocativa o narrativa, a volte un gioco di parole, a volte un numero o una lista imperniata su un dettaglio sorprendente. Il titolo deve comunicare la destinazione e lo spirito del viaggio in modo implicito e originale, mai ripetendo pedissequamente le due etichette. Scrivilo racchiuso ESATTAMENTE così, come primissima riga di output, prima di ogni altra cosa: <title>Il tuo titolo qui</title>
 
 STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi. Usa un lessico ricco, preciso ed evocativo, varia la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto): sostituiscili con dettagli specifici e originali che dimostrino conoscenza reale del posto. Attingi quando pertinente a storia, cultura, tradizioni locali, piccoli aneddoti o curiosità poco note: servono ad ampliare gli argomenti trattati, non solo a descrivere cosa vedere.
 
@@ -229,7 +235,7 @@ PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso ar
 
 Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
-Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
+Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
 
 <h2>Perché scegliere ${dest.name} per un ${vibe.label}</h2>
 <p>Paragrafo introduttivo denso e coinvolgente (10-14 righe): apri con una scena concreta e sensoriale (un momento, un luogo, un dettaglio che catturi l'atmosfera), poi intreccia cenni storici o culturali rilevanti, cosa rende unica la destinazione per questo tipo di viaggio, e perché diversi tipi di viaggiatori vi troverebbero qualcosa di prezioso.</p>
@@ -289,6 +295,13 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
     );
   }
 
+  // Estrae il titolo editoriale scritto dall'AI (vedi istruzioni <title> nel
+  // masterPrompt): se per qualche motivo manca, ripiega sul formato
+  // "Destinazione: tema" invece di far fallire l'intera generazione.
+  const titleMatch = content.match(/<title>([\s\S]*?)<\/title>/i);
+  const title = titleMatch?.[1]?.trim() || internalKey;
+  content = content.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
+
   // Nonostante l'istruzione di usare SOLO i segnaposto [IMG_...], a volte il
   // modello inventa comunque un proprio tag <img>/<figure> con un src finto
   // (es. "eiffel-tower.jpg"): risultato, un'icona di immagine rotta in
@@ -334,20 +347,26 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
   await notifyDreamDestinationMatches(dest.name, { slug, title });
 
   // Pubblicazione sui social: un fallimento qui (chiavi non configurate,
-  // token scaduto...) non deve mai far sembrare fallita la generazione
-  // dell'articolo, che a questo punto è già salvato e online.
+  // token scaduto...) non deve mai far fallire la generazione dell'articolo,
+  // che a questo punto è già salvato e online. L'esito viene comunque
+  // restituito (non solo loggato) così da poterlo controllare direttamente
+  // nella risposta JSON del cron, senza dover aprire i log di Vercel.
   const articleUrl = `${getSiteUrl()}/enciclopedia/${slug}`;
-  await Promise.all([
-    postToFacebookPage({ message: socialCaption, link: articleUrl }).catch((err) =>
-      console.error("Post Facebook fallito:", err)
-    ),
+  const facebookErrorFallback = { ok: false, error: "Errore imprevisto durante la pubblicazione." };
+  const instagramNoCoverResult = { ok: false, error: "Nessuna immagine di copertina disponibile." };
+  const [facebook, instagram] = await Promise.all([
+    postToFacebookPage({ message: socialCaption, link: articleUrl }).catch((err) => {
+      console.error("Post Facebook fallito:", err);
+      return facebookErrorFallback;
+    }),
     cover
-      ? postToInstagram({ imageUrl: cover.url, caption: `${socialCaption}\n\n🔗 Link in bio` }).catch((err) =>
-          console.error("Post Instagram fallito:", err)
-        )
-      : Promise.resolve(),
+      ? postToInstagram({ imageUrl: cover.url, caption: `${socialCaption}\n\n🔗 Link in bio` }).catch((err) => {
+          console.error("Post Instagram fallito:", err);
+          return facebookErrorFallback;
+        })
+      : Promise.resolve(instagramNoCoverResult),
   ]);
 
   console.log(`✅ Articolo pubblicato: ${title} (${slug})`);
-  return { title, slug };
+  return { title, slug, social: { facebook, instagram } };
 }
