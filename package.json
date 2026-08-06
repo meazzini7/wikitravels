@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:article": "tsx scripts/generate-article.ts"
+    "generate:article": "tsx scripts/generate-article.ts",
+    "generate:promo-post": "tsx scripts/generate-promo-post.ts"
   },
   "dependencies": {
     "next": "^14.2.0",

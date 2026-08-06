@@ -117,19 +117,29 @@ async function pickNextDestination(): Promise<Dest> {
 //    principale: un fallimento qui degrada a valori di default invece di
 //    far fallire l'intera generazione.
 // ------------------------------------------------------------------
-async function generateMetadata(title: string, dest: string, vibe: string) {
+async function generateMetadata(title: string, dest: string, vibe: string, articleExcerpt: string) {
   const prompt = `Sei un esperto di viaggi, SEO e social media. Per il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}):
 1. Assegna un punteggio da 0 a 10 per ciascuno di questi interessi: ${INTEREST_KEYS.join(", ")}.
 2. Scrivi un meta title SEO accattivante, MAX 60 caratteri.
 3. Scrivi una meta description SEO persuasiva, MAX 155 caratteri.
-4. Scrivi una didascalia per un post Facebook/Instagram che invogli a leggere l'articolo su ${dest}: massimo 3-4 frasi brevi, tono caldo ed entusiasta da vero appassionato di viaggi (non da ufficio marketing), con 1-2 emoji pertinenti ma senza esagerare, SENZA hashtag e SENZA link (il link viene aggiunto separatamente dal codice).
+4. Scrivi una didascalia BREVE per un post Facebook che invogli a leggere l'articolo su ${dest}: massimo 3-4 frasi brevi, tono caldo ed entusiasta da vero appassionato di viaggi (non da ufficio marketing), con 1-2 emoji pertinenti ma senza esagerare, SENZA hashtag e SENZA link (il link viene aggiunto separatamente dal codice, e su Facebook funziona quindi non serve invogliare a cercarlo).
+5. Scrivi ANCHE una didascalia LUNGA per Instagram (dove i link non sono cliccabili, quindi deve dare valore già di suo): circa 1200-1600 caratteri, che racconti in modo coinvolgente una parte sostanziosa e concreta del contenuto dell'articolo qui sotto (aneddoti, luoghi, dettagli veri — non solo l'introduzione generica), come un piccolo racconto autonomo. SENZA hashtag, SENZA menzionare link o "link in bio" (li aggiunge il codice).
+6. Scrivi una lista di 15-20 hashtag pertinenti per Instagram, mescolando hashtag di nicchia (specifici sulla destinazione "${dest}" e sul tema "${vibe}") e hashtag ampi/popolari sul viaggio, per massimizzare la visibilità. Formato: stringa unica con gli hashtag separati da spazio, ciascuno che inizia per # e senza spazi interni.
+
+Ecco un estratto del contenuto dell'articolo da cui attingere per i punti 5 e 6:
+"""
+${articleExcerpt}
+"""
+
 Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa struttura:
-{"scores": {${INTEREST_KEYS.map((k) => `"${k}": 0`).join(", ")}}, "seo": {"metaTitle": "...", "metaDescription": "..."}, "socialCaption": "..."}`;
+{"scores": {${INTEREST_KEYS.map((k) => `"${k}": 0`).join(", ")}}, "seo": {"metaTitle": "...", "metaDescription": "..."}, "socialCaption": "...", "instagramCaption": "...", "instagramHashtags": "..."}`;
 
   const fallback = {
     scores: Object.fromEntries(INTEREST_KEYS.map((k) => [k, 5])),
     seo: { metaTitle: title.slice(0, 60), metaDescription: title.slice(0, 155) },
     socialCaption: `Nuovo articolo su ${dest}! 🌍 Scoprilo sull'Enciclopedia di WikiTravels.`,
+    instagramCaption: `Nuovo articolo su ${dest}! 🌍 Scoprilo sull'Enciclopedia di WikiTravels.`,
+    instagramHashtags: "#viaggi #travel #wikitravels #viaggiare #turismo #vacanze #wanderlust #travelgram #instatravel #viaggiareitaliani",
   };
 
   try {
@@ -149,9 +159,17 @@ Rispondi SOLO con un oggetto JSON puro, senza markdown, con ESATTAMENTE questa s
         typeof parsed?.socialCaption === "string" && parsed.socialCaption.trim()
           ? parsed.socialCaption.trim()
           : fallback.socialCaption,
+      instagramCaption:
+        typeof parsed?.instagramCaption === "string" && parsed.instagramCaption.trim()
+          ? parsed.instagramCaption.trim()
+          : fallback.instagramCaption,
+      instagramHashtags:
+        typeof parsed?.instagramHashtags === "string" && parsed.instagramHashtags.trim()
+          ? parsed.instagramHashtags.trim()
+          : fallback.instagramHashtags,
     };
   } catch (err) {
-    console.error("Impossibile generare punteggi/meta SEO/didascalia social, uso i default:", err);
+    console.error("Impossibile generare punteggi/meta SEO/didascalie social, uso i default:", err);
     return fallback;
   }
 }
@@ -309,7 +327,21 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
   // l'unico <img> possibile è quello con URL Unsplash valido inserito sotto.
   content = content.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/<img[^>]*>/gi, "");
 
-  const { scores, seo, socialCaption } = await generateMetadata(title, dest.name, vibe.label);
+  // Estratto testuale (senza tag HTML né segnaposto immagine) da dare in
+  // pasto all'AI come contesto reale per la didascalia lunga di Instagram.
+  const plainTextExcerpt = content
+    .replace(/\[(IMG_LANDMARK|IMG_ACTIVITY|IMG_FOOD):[^\]]*\]/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 6000);
+
+  const { scores, seo, socialCaption, instagramCaption, instagramHashtags } = await generateMetadata(
+    title,
+    dest.name,
+    vibe.label,
+    plainTextExcerpt
+  );
 
   // Copertina: destinazione + tema del viaggio, per evitare foto generiche
   // scollegate dal tipo di articolo (vedi commento su VIBES sopra).
@@ -352,6 +384,19 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
   // restituito (non solo loggato) così da poterlo controllare direttamente
   // nella risposta JSON del cron, senza dover aprire i log di Vercel.
   const articleUrl = `${getSiteUrl()}/enciclopedia/${slug}`;
+
+  // Instagram taglia le didascalie a 2200 caratteri: corpo + CTA + hashtag
+  // devono starci per intero, quindi se serve si accorcia solo il corpo
+  // (mai gli hashtag, che sono la parte pensata per la visibilità).
+  const instagramCta = "\n\n🔗 Articolo completo nel link in bio";
+  const instagramHashtagsBlock = `\n\n${instagramHashtags}`;
+  const instagramCaptionBudget = 2200 - instagramCta.length - instagramHashtagsBlock.length;
+  const instagramCaptionBody =
+    instagramCaption.length > instagramCaptionBudget
+      ? `${instagramCaption.slice(0, Math.max(0, instagramCaptionBudget - 1))}…`
+      : instagramCaption;
+  const fullInstagramCaption = `${instagramCaptionBody}${instagramCta}${instagramHashtagsBlock}`;
+
   const facebookErrorFallback = { ok: false, error: "Errore imprevisto durante la pubblicazione." };
   const instagramNoCoverResult = { ok: false, error: "Nessuna immagine di copertina disponibile." };
   const [facebook, instagram] = await Promise.all([
@@ -360,7 +405,7 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
       return facebookErrorFallback;
     }),
     cover
-      ? postToInstagram({ imageUrl: cover.url, caption: `${socialCaption}\n\n🔗 Link in bio` }).catch((err) => {
+      ? postToInstagram({ imageUrl: cover.url, caption: fullInstagramCaption }).catch((err) => {
           console.error("Post Instagram fallito:", err);
           return facebookErrorFallback;
         })
