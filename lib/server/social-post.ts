@@ -65,6 +65,34 @@ export async function postToInstagram({ imageUrl, caption }: { imageUrl: string;
       return { ok: false, error: JSON.stringify(createData) };
     }
 
+    // Instagram scarica ed elabora l'immagine in background: pubblicare
+    // subito dopo la creazione del contenitore spesso fallisce con "Media
+    // ID is not available" perché non è ancora pronto. Si attende che
+    // status_code diventi FINISHED (poll ogni 2s, max ~16s: la route del
+    // cron ha un limite di 60s totali, quindi non si può aspettare troppo)
+    // prima di procedere alla pubblicazione.
+    let ready = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const statusRes = await fetch(
+        `https://graph.instagram.com/${GRAPH_VERSION}/${createData.id}?fields=status_code&access_token=${token}`
+      );
+      const statusData = await statusRes.json();
+      if (statusData.status_code === "FINISHED") {
+        ready = true;
+        break;
+      }
+      if (statusData.status_code === "ERROR") {
+        console.error("Elaborazione media Instagram fallita:", statusData);
+        return { ok: false, error: JSON.stringify(statusData) };
+      }
+    }
+    if (!ready) {
+      const error = "Il media Instagram non è risultato pronto (status FINISHED) entro il tempo massimo di attesa.";
+      console.error(error);
+      return { ok: false, error };
+    }
+
     const publishRes = await fetch(`https://graph.instagram.com/${GRAPH_VERSION}/${userId}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
