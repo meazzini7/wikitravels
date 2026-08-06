@@ -61,11 +61,28 @@ const DESTINATIONS: Dest[] = [
   // TODO: incolla qui il resto della lista dal PHP originale, con tier assegnato
 ];
 
-const VIBES = [
-  "guida segreta", "viaggio low cost", "itinerario di lusso", "nomadi digitali",
-  "per famiglie", "avventura on the road", "fuga romantica", "viaggio in solitaria",
-  "tour enogastronomico", "trekking estremo", "viaggio zaino in spalla",
-  "luna di miele", "ecoturismo", "weekend lungo", "viaggio spirituale",
+// imageHint: parole chiave IN INGLESE aggiunte alla ricerca della copertina
+// su Unsplash, per evitare foto scollegate dal tema (es. un cucciolo di
+// lemure su un articolo di "trekking estremo"): la destinazione da sola
+// non basta a garantire coerenza con il tipo di viaggio.
+type Vibe = { label: string; imageHint: string };
+
+const VIBES: Vibe[] = [
+  { label: "guida segreta", imageHint: "hidden gem secret spot" },
+  { label: "viaggio low cost", imageHint: "budget backpacker travel" },
+  { label: "itinerario di lusso", imageHint: "luxury travel resort" },
+  { label: "nomadi digitali", imageHint: "digital nomad laptop cafe" },
+  { label: "per famiglie", imageHint: "family travel kids" },
+  { label: "avventura on the road", imageHint: "road trip adventure car" },
+  { label: "fuga romantica", imageHint: "romantic couple travel" },
+  { label: "viaggio in solitaria", imageHint: "solo traveler" },
+  { label: "tour enogastronomico", imageHint: "food wine tasting" },
+  { label: "trekking estremo", imageHint: "extreme trekking mountain hiking" },
+  { label: "viaggio zaino in spalla", imageHint: "backpacking hiking trail" },
+  { label: "luna di miele", imageHint: "honeymoon couple sunset" },
+  { label: "ecoturismo", imageHint: "ecotourism nature conservation" },
+  { label: "weekend lungo", imageHint: "city weekend getaway" },
+  { label: "viaggio spirituale", imageHint: "spiritual temple meditation" },
 ];
 
 // ------------------------------------------------------------------
@@ -191,7 +208,7 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
 export async function generateArticle() {
   const dest = await pickNextDestination();
   const vibe = VIBES[Math.floor(Math.random() * VIBES.length)];
-  const title = `${dest.name}: ${vibe}`;
+  const title = `${dest.name}: ${vibe.label}`;
   const slug = title
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -204,7 +221,7 @@ export async function generateArticle() {
     return null;
   }
 
-  const masterPrompt = `Agisci come un travel writer di fama internazionale che scrive per una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe}).
+  const masterPrompt = `Agisci come un travel writer di fama internazionale che scrive per una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente su "${title}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}).
 
 STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi. Usa un lessico ricco, preciso ed evocativo, varia la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto): sostituiscili con dettagli specifici e originali che dimostrino conoscenza reale del posto. Attingi quando pertinente a storia, cultura, tradizioni locali, piccoli aneddoti o curiosità poco note: servono ad ampliare gli argomenti trattati, non solo a descrivere cosa vedere.
 
@@ -214,7 +231,7 @@ Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
 Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
 
-<h2>Perché scegliere ${dest.name} per un ${vibe}</h2>
+<h2>Perché scegliere ${dest.name} per un ${vibe.label}</h2>
 <p>Paragrafo introduttivo denso e coinvolgente (10-14 righe): apri con una scena concreta e sensoriale (un momento, un luogo, un dettaglio che catturi l'atmosfera), poi intreccia cenni storici o culturali rilevanti, cosa rende unica la destinazione per questo tipo di viaggio, e perché diversi tipi di viaggiatori vi troverebbero qualcosa di prezioso.</p>
 
 [IMG_LANDMARK: 3-5 parole inglesi del monumento o paesaggio più iconico]
@@ -279,10 +296,11 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
   // l'unico <img> possibile è quello con URL Unsplash valido inserito sotto.
   content = content.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/<img[^>]*>/gi, "");
 
-  const { scores, seo, socialCaption } = await generateMetadata(title, dest.name, vibe);
+  const { scores, seo, socialCaption } = await generateMetadata(title, dest.name, vibe.label);
 
-  // Copertina
-  const cover = await fetchAndUploadImage(dest.keyword);
+  // Copertina: destinazione + tema del viaggio, per evitare foto generiche
+  // scollegate dal tipo di articolo (vedi commento su VIBES sopra).
+  const cover = await fetchAndUploadImage(`${dest.keyword} ${vibe.imageHint}`);
 
   // Immagini interne: sostituisce i placeholder [IMG_...] con <figure>
   const matches = [...content.matchAll(/\[(IMG_LANDMARK|IMG_ACTIVITY|IMG_FOOD):\s*(.+?)\]/gi)];
@@ -301,7 +319,7 @@ Restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESA
     title,
     slug,
     destination: dest.name,
-    vibe,
+    vibe: vibe.label,
     contentHtml: content,
     coverImageUrl: cover?.url ?? null,
     coverImageCredit: cover ? { author: cover.author, link: cover.link } : null,
