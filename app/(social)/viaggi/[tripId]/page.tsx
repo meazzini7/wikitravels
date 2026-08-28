@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { getSiteUrl } from "@/lib/site-url";
 import { TRIP_TYPE_LABELS } from "@/lib/trip-types";
 import type { Trip } from "@/lib/types";
 import TripDetailClient from "./TripDetailClient";
+
+// I contenuti live (partecipanti, chat, aggiornamenti) li gestisce
+// TripDetailClient via Firebase client SDK: questa parte server-side serve
+// solo per SEO/metadata/JSON-LD, quindi qualche minuto di cache non si nota
+// e risparmia una lettura Firestore + un render completo ad ogni visita.
+export const revalidate = 300;
 
 // I viaggi pubblici sono contenuto generato dagli utenti perfetto per la
 // ricerca organica (itinerari reali, destinazioni specifiche): prima
@@ -11,7 +18,11 @@ import TripDetailClient from "./TripDetailClient";
 // poteva esportare generateMetadata (l'API Metadata di Next.js richiede un
 // Server Component) e ogni viaggio mostrava su Google/social solo il
 // titolo/descrizione generici del sito invece dei propri.
-async function getPublicTrip(tripId: string): Promise<Trip | null> {
+//
+// Avvolta in React.cache(): sia generateMetadata sia il componente pagina
+// la chiamano nella stessa richiesta, senza questo farebbero 2 letture
+// Firestore identiche invece di una sola condivisa.
+const getPublicTrip = cache(async (tripId: string): Promise<Trip | null> => {
   try {
     const snap = await getAdminDb().collection("trips").doc(tripId).get();
     if (!snap.exists) return null;
@@ -22,7 +33,7 @@ async function getPublicTrip(tripId: string): Promise<Trip | null> {
     console.error("Impossibile leggere il viaggio per i metadata:", err);
     return null;
   }
-}
+});
 
 export async function generateMetadata({ params }: { params: { tripId: string } }): Promise<Metadata> {
   const trip = await getPublicTrip(params.tripId);
