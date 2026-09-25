@@ -41,6 +41,7 @@ function stripCodeFence(text: string): string {
 type Dest = { name: string; keyword: string; tier: 1 | 2 | 3 };
 
 const DESTINATIONS: Dest[] = [
+  // Tier 1: mete di altissima notorietà, le prime a esaurirsi nel ciclo.
   { name: "Roma", keyword: "Rome Italy colosseum", tier: 1 },
   { name: "Parigi", keyword: "Paris France Eiffel Tower", tier: 1 },
   { name: "Bali", keyword: "Bali Indonesia temple rice", tier: 1 },
@@ -48,17 +49,65 @@ const DESTINATIONS: Dest[] = [
   { name: "New York", keyword: "New York City skyline", tier: 1 },
   { name: "Barcellona", keyword: "Barcelona Spain Sagrada Familia", tier: 1 },
   { name: "Londra", keyword: "London Big Ben Thames", tier: 1 },
+  { name: "Amsterdam", keyword: "Amsterdam canals bicycles", tier: 1 },
+  { name: "Venezia", keyword: "Venice Italy canals gondola", tier: 1 },
+  { name: "Firenze", keyword: "Florence Italy Duomo renaissance", tier: 1 },
+  { name: "Lisbona", keyword: "Lisbon Portugal tram tiles", tier: 1 },
+  { name: "Santorini", keyword: "Santorini Greece white houses sunset", tier: 1 },
+  { name: "Istanbul", keyword: "Istanbul Turkey mosque Bosphorus", tier: 1 },
+  { name: "Dubai", keyword: "Dubai skyline desert luxury", tier: 1 },
+  { name: "Bangkok", keyword: "Bangkok Thailand temple street food", tier: 1 },
+  { name: "Singapore", keyword: "Singapore skyline gardens", tier: 1 },
+  { name: "Sydney", keyword: "Sydney Australia opera house harbour", tier: 1 },
+  { name: "Los Angeles", keyword: "Los Angeles California beach skyline", tier: 1 },
+  { name: "Rio de Janeiro", keyword: "Rio de Janeiro Brazil beach mountain", tier: 1 },
+  { name: "Cancún", keyword: "Cancun Mexico beach turquoise", tier: 1 },
+  { name: "Costiera Amalfitana", keyword: "Amalfi Coast Italy cliffs colorful", tier: 1 },
+  { name: "Dublino", keyword: "Dublin Ireland pub green", tier: 1 },
+
+  // Tier 2: mete molto conosciute, buona domanda di ricerca ma meno affollate del tier 1.
   { name: "Praga", keyword: "Prague Czech Republic castle", tier: 2 },
   { name: "Islanda", keyword: "Iceland landscape northern lights", tier: 2 },
   { name: "Sicilia", keyword: "Sicily Italy landscape", tier: 2 },
   { name: "Marrakech", keyword: "Marrakech Morocco medina", tier: 2 },
   { name: "Vietnam", keyword: "Vietnam landscape Ha Long Bay", tier: 2 },
   { name: "Perù", keyword: "Peru Machu Picchu mountains", tier: 2 },
+  { name: "Budapest", keyword: "Budapest Hungary parliament Danube", tier: 2 },
+  { name: "Vienna", keyword: "Vienna Austria palace classical", tier: 2 },
+  { name: "Cracovia", keyword: "Krakow Poland old town square", tier: 2 },
+  { name: "Copenaghen", keyword: "Copenhagen Denmark colorful harbour", tier: 2 },
+  { name: "Stoccolma", keyword: "Stockholm Sweden old town archipelago", tier: 2 },
+  { name: "Edimburgo", keyword: "Edinburgh Scotland castle highlands", tier: 2 },
+  { name: "Berlino", keyword: "Berlin Germany wall history", tier: 2 },
+  { name: "Malta", keyword: "Malta island fortress sea", tier: 2 },
+  { name: "Petra e Giordania", keyword: "Petra Jordan ancient ruins desert", tier: 2 },
+  { name: "Egitto", keyword: "Egypt pyramids Cairo desert", tier: 2 },
+  { name: "Cape Town", keyword: "Cape Town South Africa table mountain", tier: 2 },
+  { name: "Costa Rica", keyword: "Costa Rica rainforest wildlife", tier: 2 },
+  { name: "Nuova Zelanda", keyword: "New Zealand mountains landscape", tier: 2 },
+  { name: "Kyoto", keyword: "Kyoto Japan temple autumn", tier: 2 },
+  { name: "Rajasthan", keyword: "Rajasthan India palace colorful", tier: 2 },
+
+  // Tier 3: mete di nicchia, coprono keyword di coda lunga con meno concorrenza.
   { name: "Isole Faroe", keyword: "Faroe Islands dramatic cliffs", tier: 3 },
   { name: "Madagascar", keyword: "Madagascar nature wildlife", tier: 3 },
   { name: "Transilvania", keyword: "Transylvania Romania castle", tier: 3 },
   { name: "Lofoten", keyword: "Lofoten Norway fjord", tier: 3 },
-  // TODO: incolla qui il resto della lista dal PHP originale, con tier assegnato
+  { name: "Georgia", keyword: "Tbilisi Georgia old town mountains", tier: 3 },
+  { name: "Uzbekistan", keyword: "Samarkand Uzbekistan silk road architecture", tier: 3 },
+  { name: "Bhutan", keyword: "Bhutan Himalaya monastery", tier: 3 },
+  { name: "Groenlandia", keyword: "Greenland ice glacier arctic", tier: 3 },
+  { name: "Namibia", keyword: "Namibia desert dunes wildlife", tier: 3 },
+  { name: "Sri Lanka", keyword: "Sri Lanka tea plantation beach", tier: 3 },
+  { name: "Azzorre", keyword: "Azores Portugal volcanic islands", tier: 3 },
+  { name: "Patagonia", keyword: "Patagonia mountains glacier trekking", tier: 3 },
+  { name: "Mongolia", keyword: "Mongolia steppe yurt nomad", tier: 3 },
+  { name: "Slovenia", keyword: "Slovenia lake Bled mountains", tier: 3 },
+  { name: "Albania", keyword: "Albania coast mountains", tier: 3 },
+  { name: "Mostar", keyword: "Mostar Bosnia bridge old town", tier: 3 },
+  { name: "Laos", keyword: "Laos temple river jungle", tier: 3 },
+  { name: "Palawan", keyword: "Palawan Philippines lagoon islands", tier: 3 },
+  { name: "Kirghizistan", keyword: "Kyrgyzstan mountains nomad yurt", tier: 3 },
 ];
 
 // imageHint: parole chiave IN INGLESE aggiunte alla ricerca della copertina
@@ -249,7 +298,7 @@ export async function generateArticle() {
 
 TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo editoriale originale per questo pezzo, come lo scriverebbe una vera redazione con decine di firme diverse, ognuna con un proprio stile. NON usare MAI il formato letterale "Destinazione: tema" (es. "Roma: trekking estremo") che è un template, non un titolo. Varia radicalmente la struttura da un articolo all'altro: a volte una domanda, a volte un'affermazione decisa, a volte una frase evocativa o narrativa, a volte un gioco di parole, a volte un numero o una lista imperniata su un dettaglio sorprendente. Il titolo deve comunicare la destinazione e lo spirito del viaggio in modo implicito e originale, mai ripetendo pedissequamente le due etichette. Scrivilo racchiuso ESATTAMENTE così, come primissima riga di output, prima di ogni altra cosa: <title>Il tuo titolo qui</title>
 
-STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi. Usa un lessico ricco, preciso ed evocativo, varia la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto): sostituiscili con dettagli specifici e originali che dimostrino conoscenza reale del posto. Attingi quando pertinente a storia, cultura, tradizioni locali, piccoli aneddoti o curiosità poco note: servono ad ampliare gli argomenti trattati, non solo a descrivere cosa vedere.
+STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi, e soprattutto non scrivere come si riconosce di solito un testo generato da un'intelligenza artificiale. Usa un lessico ricco, preciso ed evocativo, varia radicalmente la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive, non ripetere mai la stessa struttura sintattica per più di due paragrafi di fila), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria, come se l'autore ci fosse davvero stato. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto, liste di aggettivi in fila): sostituiscili con dettagli specifici, concreti e plausibili — un nome di quartiere reale, un orario indicativo, un prezzo, un piccolo particolare insolito — che dimostrino conoscenza reale del posto, come farebbe un giornalista che ha davvero fatto ricerca. Attingi quando pertinente a storia, cultura, tradizioni locali, aneddoti poco noti o curiosità sorprendenti: servono ad ampliare la ricercatezza dei contenuti, non solo a descrivere cosa vedere. Evita i tic tipici dei testi da AI: non aprire con "Immagina di...", non chiudere paragrafi o sezioni con frasi motivazionali generiche da opuscolo, non usare più di una volta nell'intero pezzo formule bilanciate tipo "sia che tu stia cercando X, sia che tu preferisca Y".
 
 PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso articolo, intrecciando naturalmente spunti per ciascuno senza dedicare sezioni separate: chi viaggia in coppia, chi in famiglia con bambini, chi da solo/a, chi cerca lusso e comfort, chi viaggia con budget ridotto, chi cerca adrenalina e chi cerca solo relax o ispirazione culturale. Ogni tipo di viaggiatore deve trovare almeno un dettaglio pensato per lui.
 
