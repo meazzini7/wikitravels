@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { getServerLocale } from "@/lib/i18n/server-locale";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionary";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import RecommendedArticles from "@/components/RecommendedArticles";
@@ -35,7 +35,10 @@ async function getArticles(): Promise<Article[]> {
 
 export default async function EnciclopediaPage() {
   const articles = await getArticles();
-  const dict = getDictionary(getServerLocale()).enciclopedia;
+  // DEFAULT_LOCALE invece di leggere il cookie lingua: cookies() qui
+  // forzerebbe la pagina a non essere mai servita dalla cache nonostante
+  // il revalidate sopra (vedi lo stesso ragionamento in app/layout.tsx).
+  const dict = getDictionary(DEFAULT_LOCALE).enciclopedia;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
