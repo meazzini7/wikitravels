@@ -4,6 +4,11 @@ import { getSiteUrl } from "@/lib/site-url";
 
 const siteUrl = getSiteUrl();
 
+// Senza questa, ogni visita a /sitemap.xml (anche dai crawler, che la
+// rivisitano spesso) rileggeva TUTTI gli articoli e i viaggi pubblici da
+// Firestore da zero. Un'ora di cache è più che sufficiente per una sitemap.
+export const revalidate = 3600;
+
 function toDate(value: unknown): Date | undefined {
   if (value instanceof Date) return value;
   if (

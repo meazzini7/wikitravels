@@ -3,7 +3,7 @@ import { Baloo_2, Nunito } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { I18nProvider } from "@/lib/i18n/i18n-context";
-import { getServerLocale } from "@/lib/i18n/server-locale";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionary";
 import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
@@ -77,7 +77,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const locale = getServerLocale();
+  // Niente più lettura della lingua dal cookie qui: cookies()/headers()
+  // nel layout radice forzerebbe OGNI pagina del sito a renderizzare lato
+  // server a ogni singola richiesta invece di poter essere servita in
+  // cache/staticamente (il contatore "Active CPU" di Vercel misura
+  // esattamente questo). Il guscio statico è sempre in italiano;
+  // I18nProvider rileva ed eventualmente corregge la lingua lato client
+  // subito dopo l'idratazione (vedi lib/i18n/i18n-context.tsx).
+  const locale = DEFAULT_LOCALE;
   const dictionary = getDictionary(locale);
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { Locale } from "./config";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "./config";
+import { getDictionary } from "./dictionary";
 import type { Dictionary } from "./types";
-import { LOCALE_COOKIE } from "./config";
 
 interface I18nContextValue {
   locale: Locale;
@@ -13,24 +13,46 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-// Passa la lingua e il dizionario già risolti dal server (letti dal
-// middleware/cookie) invece di ri-rilevarli lato client, per evitare uno
-// sfarfallio della lingua durante l'idratazione.
+function readCookieLocale(): Locale | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${LOCALE_COOKIE}=([^;]+)`));
+  const value = match?.[1];
+  return value && isLocale(value) ? value : null;
+}
+
+// Il guscio renderizzato dal server è sempre in italiano (vedi app/layout.tsx:
+// leggere la lingua dal cookie lì forzerebbe l'intero sito a non essere mai
+// servito in cache). Qui, subito dopo l'idratazione, si legge il cookie
+// salvato da una scelta precedente e si corregge la lingua lato client: per
+// chi ha già scelto una lingua diversa dall'italiano c'è un breve istante
+// (nessuna richiesta di rete, solo lettura del cookie) in cui vede il
+// guscio in italiano prima della correzione — un compromesso accettato per
+// poter servire il resto del sito in modo statico/cache.
 export function I18nProvider({
-  locale,
-  dictionary,
+  locale: initialLocale,
+  dictionary: initialDictionary,
   children,
 }: {
   locale: Locale;
   dictionary: Dictionary;
   children: ReactNode;
 }) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [dictionary, setDictionary] = useState<Dictionary>(initialDictionary);
+
+  useEffect(() => {
+    const saved = readCookieLocale();
+    if (saved && saved !== DEFAULT_LOCALE) {
+      setLocaleState(saved);
+      setDictionary(getDictionary(saved));
+      document.documentElement.lang = saved;
+    }
+  }, []);
+
   const setLocale = useCallback((next: Locale) => {
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
-    // Un ricaricamento completo, non un semplice cambio di stato: anche i
-    // Server Component (che leggono la lingua dal cookie a ogni richiesta)
-    // devono ri-renderizzare nella nuova lingua.
-    window.location.reload();
+    setLocaleState(next);
+    setDictionary(getDictionary(next));
+    document.documentElement.lang = next;
   }, []);
 
   const value = useMemo(() => ({ locale, dictionary, setLocale }), [locale, dictionary, setLocale]);
