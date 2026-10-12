@@ -228,6 +228,7 @@ export function HealthSection({
       label: h.key === "facebook" ? "Facebook" : "Instagram",
       status: h.ok ? "Funziona" : /expired|scadut/i.test(h.detail) ? "Collegamento scaduto: va rinnovato" : "Non funziona",
       detail: h.detail,
+      note: h.note,
       action:
         !h.ok && h.key === "instagram"
           ? { href: `/admin/instagram-connect?secret=${encodeURIComponent(secret)}`, label: "Rinnova Instagram" }
@@ -239,6 +240,7 @@ export function HealthSection({
       label: "Google Analytics",
       status: gaOk ? "Collegato" : "Da collegare (vedi sotto)",
       detail: "",
+      note: undefined as string | undefined,
       action: null,
     },
   ];
@@ -249,9 +251,12 @@ export function HealthSection({
       <ul className="space-y-2">
         {rows.map((r) =>
           r.ok ? (
-            <li key={r.key} className="flex items-center justify-between gap-3 rounded-xl bg-green-50 px-3 py-2">
-              <p className="text-sm font-bold text-green-900">✅ {r.label}</p>
-              <p className="text-xs text-green-800">{r.status}</p>
+            <li key={r.key} className="rounded-xl bg-green-50 px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-green-900">✅ {r.label}</p>
+                <p className="text-xs text-green-800">{r.status}</p>
+              </div>
+              {r.note && <p className="mt-0.5 text-[11px] text-green-800">{r.note}</p>}
             </li>
           ) : (
             <li key={r.key} className="rounded-xl bg-red-50 p-3">
@@ -259,6 +264,7 @@ export function HealthSection({
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-red-900">⚠️ {r.label}</p>
                   <p className="text-xs text-red-800">{r.status}</p>
+                  {r.note && <p className="mt-0.5 text-[11px] text-red-800">{r.note}</p>}
                 </div>
                 {r.action && (
                   <Link

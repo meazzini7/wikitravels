@@ -1,4 +1,5 @@
 import { getSiteUrl } from "@/lib/site-url";
+import { isValidAdminSecret, makeOAuthState } from "@/lib/server/admin-auth";
 
 // Pagina riservata che legge ?secret=: mai da prerenderizzare staticamente.
 export const dynamic = "force-dynamic";
@@ -16,10 +17,7 @@ export default function InstagramConnectPage({
 }: {
   searchParams: { secret?: string };
 }) {
-  const expected = process.env.CRON_SECRET;
-  const authorized = !!expected && searchParams.secret === expected;
-
-  if (!authorized) {
+  if (!isValidAdminSecret(searchParams.secret)) {
     return (
       <main className="mx-auto max-w-md px-4 py-16 text-center">
         <p className="text-gray-600">Non autorizzato.</p>
@@ -40,16 +38,19 @@ export default function InstagramConnectPage({
   }
 
   const redirectUri = `${getSiteUrl()}/api/instagram/callback`;
+  // "state" derivato dal segreto: la pagina di ritorno rifiuta le richieste
+  // che non lo riportano (vedi app/api/instagram/callback/route.ts).
+  const state = makeOAuthState() ?? "";
   const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(
     redirectUri
-  )}&response_type=code&scope=${SCOPES}`;
+  )}&response_type=code&scope=${SCOPES}&state=${encodeURIComponent(state)}`;
 
   return (
     <main className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center gap-6 px-4 py-16 text-center">
       <h1 className="font-heading text-2xl font-bold text-gray-900">📸 Collega Instagram</h1>
       <p className="text-sm text-gray-500">
         Accedi con l&apos;account <strong>@wikitravels.it</strong> per autorizzare WikiTravels a pubblicare i
-        nuovi articoli automaticamente.
+        nuovi articoli automaticamente. Il collegamento viene salvato e rinnovato da solo ogni mese.
       </p>
       <a
         href={authUrl}
