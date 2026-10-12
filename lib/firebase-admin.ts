@@ -13,7 +13,7 @@ import { getStorage } from "firebase-admin/storage";
 //    di deploy non gestisce bene i valori multilinea).
 // 3. FIREBASE_ADMIN_CLIENT_EMAIL + FIREBASE_ADMIN_PRIVATE_KEY separate
 //    (richiede di preservare a mano gli "\n" nella chiave, più fragile).
-function loadCredential(): ServiceAccount {
+export function loadCredential(): ServiceAccount {
   const rawJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON;
   if (rawJson) {
     const parsed = JSON.parse(rawJson);

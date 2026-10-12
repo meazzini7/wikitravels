@@ -1,5 +1,8 @@
 import { getSiteUrl } from "@/lib/site-url";
 
+// Pagina riservata che legge ?secret=: mai da prerenderizzare staticamente.
+export const dynamic = "force-dynamic";
+
 // Scopes della "Instagram API with Instagram Login" (lanciata da Meta a
 // metà 2024): non richiede più che l'account Instagram sia collegato a
 // una Pagina Facebook, a differenza del vecchio metodo.
