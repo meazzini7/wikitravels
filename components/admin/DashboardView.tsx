@@ -105,6 +105,13 @@ const GROUP_HEAD = ["", "Articoli", "Visite", "Punteggio medio", "Resa vs media"
 
 export function SetupGuide({ error }: { error: string | undefined }) {
   const email = getServiceAccountEmail();
+  // Il "numero progetto" Google Cloud coincide con il messagingSenderId di
+  // Firebase: il progetto è lo stesso, quindi si può linkare direttamente
+  // la pagina per abilitare l'API senza far cercare nulla nella console.
+  const projectNumber = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+  const enableUrl = projectNumber
+    ? `https://console.developers.google.com/apis/api/analyticsdata.googleapis.com/overview?project=${projectNumber}`
+    : null;
   return (
     <Card
       title="🔌 Collega Google Analytics"
@@ -117,9 +124,21 @@ export function SetupGuide({ error }: { error: string | undefined }) {
       )}
       <ol className="list-decimal space-y-3 pl-5 text-sm text-gray-700">
         <li>
-          Vai su <strong>console.cloud.google.com</strong>, scegli il progetto <strong>wikitravels</strong> in alto →{" "}
-          <strong>API e servizi → Libreria</strong> → cerca <strong>&quot;Google Analytics Data API&quot;</strong> → clicca{" "}
-          <strong>Abilita</strong>.
+          {enableUrl ? (
+            <>
+              Apri{" "}
+              <a href={enableUrl} target="_blank" rel="noreferrer" className="font-bold text-brand-700 underline">
+                questo link per abilitare la Google Analytics Data API
+              </a>{" "}
+              (è lo stesso progetto di Firebase: accedi con lo stesso account Google) e clicca il pulsante blu{" "}
+              <strong>Abilita</strong>. Poi aspetta un paio di minuti.
+            </>
+          ) : (
+            <>
+              Su <strong>console.cloud.google.com</strong>, nel progetto di Firebase: <strong>API e servizi → Libreria</strong> →
+              cerca <strong>&quot;Google Analytics Data API&quot;</strong> → <strong>Abilita</strong>.
+            </>
+          )}
         </li>
         <li>
           Vai su <strong>analytics.google.com</strong> → <strong>Amministrazione</strong> (ingranaggio in basso a sinistra) →{" "}
