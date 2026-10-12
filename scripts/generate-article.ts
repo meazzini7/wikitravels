@@ -17,6 +17,16 @@ import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
 import { sendNotificationEmailByUid } from "../lib/server/notification-email";
 import { postToFacebookPage, postToInstagram } from "../lib/server/social-post";
 import { getSiteUrl } from "../lib/site-url";
+import { withUtm } from "../lib/utm";
+import {
+  getLearningInsights,
+  pickExamples,
+  pickWeighted,
+  shouldExplore,
+  weightFor,
+  type ArticleStat,
+  type Insights,
+} from "../lib/server/performance-insights";
 import { destinationMatchKeys } from "../lib/dream-destinations";
 import type { UserProfile } from "../lib/types";
 
@@ -135,28 +145,59 @@ const VIBES: Vibe[] = [
 ];
 
 // ------------------------------------------------------------------
-// 2. Sceglie la prossima destinazione: prima tier 1 non ancora usati
-//    di recente, poi tier 2, poi tier 3. Legge da Firestore quali
+// 2. Sceglie la prossima destinazione: di norma prima tier 1 non ancora
+//    usate, poi tier 2, poi tier 3. Se i dati di traffico sono abbastanza
+//    (vedi performance-insights), la fascia viene scelta con probabilità
+//    proporzionale a quanto rende; una quota di scelte resta sempre
+//    "come prima" per continuare a esplorare. Legge da Firestore quali
 //    destinazioni sono già state pubblicate.
 // ------------------------------------------------------------------
-async function pickNextDestination(): Promise<Dest> {
+async function pickNextDestination(insights: Insights | null): Promise<Dest> {
   const publishedSnap = await getAdminDb()
     .collection("articles")
     .select("destination")
     .get();
   const published = new Set(publishedSnap.docs.map((d) => d.data().destination));
 
-  for (const tier of [1, 2, 3] as const) {
-    const candidates = DESTINATIONS.filter(
-      (d) => d.tier === tier && !published.has(d.name)
-    );
-    if (candidates.length > 0) {
-      return candidates[Math.floor(Math.random() * candidates.length)];
-    }
+  const tiersWithCandidates = ([1, 2, 3] as const)
+    .map((tier) => ({
+      tier,
+      candidates: DESTINATIONS.filter((d) => d.tier === tier && !published.has(d.name)),
+    }))
+    .filter((t) => t.candidates.length > 0);
+
+  if (tiersWithCandidates.length > 0) {
+    const chosen =
+      insights && !shouldExplore()
+        ? pickWeighted(tiersWithCandidates, (t) => weightFor(insights.byTier, String(t.tier)))
+        : tiersWithCandidates[0];
+    return chosen.candidates[Math.floor(Math.random() * chosen.candidates.length)];
   }
   // Tutte le mete già coperte almeno una volta: ricomincia dal tier 1 random
   const tier1 = DESTINATIONS.filter((d) => d.tier === 1);
   return tier1[Math.floor(Math.random() * tier1.length)];
+}
+
+// Il tema (tipo di viaggio) con cui scrivere: pesato sui risultati quando
+// i dati bastano, altrimenti uniforme come prima.
+function pickVibe(insights: Insights | null): Vibe {
+  if (!insights || shouldExplore()) return VIBES[Math.floor(Math.random() * VIBES.length)];
+  return pickWeighted(VIBES, (v) => weightFor(insights.byVibe, v.label));
+}
+
+// Blocco per il prompt: gli articoli che i lettori hanno premiato di più e
+// quelli meno, perché il modello capisca il livello da raggiungere senza
+// copiarli. Vuoto quando non ci sono ancora dati sufficienti.
+function buildLearningBlock(insights: Insights | null): string {
+  if (!insights) return "";
+  const { best, weakest } = pickExamples(insights);
+  if (best.length === 0) return "";
+  const line = (a: ArticleStat) => `- "${a.title}" (${a.destination}, tema: ${a.vibe})`;
+  let block = `APPRENDIMENTO DAI LETTORI (riservato, non citarlo mai nell'articolo): questi sono gli articoli che i lettori del nostro sito hanno premiato di più finora, per visite e tempo di lettura:\n${best.map(line).join("\n")}\nNon copiarli: capisci cosa li rende efficaci (concretezza dei dettagli, tono, forza del titolo, struttura) e raggiungi almeno quel livello.`;
+  if (weakest.length > 0) {
+    block += `\nQuesti invece hanno funzionato meno:\n${weakest.map(line).join("\n")}\nEvita gli stessi difetti probabili: genericità, titoli poco incisivi, dettagli vaghi.`;
+  }
+  return `\n\n${block}`;
 }
 
 // ------------------------------------------------------------------
@@ -275,8 +316,11 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
 // 5. MAIN
 // ------------------------------------------------------------------
 export async function generateArticle() {
-  const dest = await pickNextDestination();
-  const vibe = VIBES[Math.floor(Math.random() * VIBES.length)];
+  // Dati di resa dei contenuti passati (null finché sono troppo pochi per
+  // fidarsene): orientano scelta di fascia/tema ed esempi nel prompt.
+  const insights = await getLearningInsights();
+  const dest = await pickNextDestination(insights);
+  const vibe = pickVibe(insights);
   // internalKey: identificatore prevedibile (destinazione+tema) usato SOLO
   // per slug/URL e anti-duplicati. Il titolo mostrato ai lettori \u00e8 invece
   // scritto dall'AI (vedi masterPrompt sotto) per essere un vero titolo
@@ -300,7 +344,7 @@ TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo ed
 
 STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi, e soprattutto non scrivere come si riconosce di solito un testo generato da un'intelligenza artificiale. Usa un lessico ricco, preciso ed evocativo, varia radicalmente la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive, non ripetere mai la stessa struttura sintattica per più di due paragrafi di fila), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria, come se l'autore ci fosse davvero stato. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto, liste di aggettivi in fila): sostituiscili con dettagli specifici, concreti e plausibili — un nome di quartiere reale, un orario indicativo, un prezzo, un piccolo particolare insolito — che dimostrino conoscenza reale del posto, come farebbe un giornalista che ha davvero fatto ricerca. Attingi quando pertinente a storia, cultura, tradizioni locali, aneddoti poco noti o curiosità sorprendenti: servono ad ampliare la ricercatezza dei contenuti, non solo a descrivere cosa vedere. Evita i tic tipici dei testi da AI: non aprire con "Immagina di...", non chiudere paragrafi o sezioni con frasi motivazionali generiche da opuscolo, non usare più di una volta nell'intero pezzo formule bilanciate tipo "sia che tu stia cercando X, sia che tu preferisca Y".
 
-PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso articolo, intrecciando naturalmente spunti per ciascuno senza dedicare sezioni separate: chi viaggia in coppia, chi in famiglia con bambini, chi da solo/a, chi cerca lusso e comfort, chi viaggia con budget ridotto, chi cerca adrenalina e chi cerca solo relax o ispirazione culturale. Ogni tipo di viaggiatore deve trovare almeno un dettaglio pensato per lui.
+PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso articolo, intrecciando naturalmente spunti per ciascuno senza dedicare sezioni separate: chi viaggia in coppia, chi in famiglia con bambini, chi da solo/a, chi cerca lusso e comfort, chi viaggia con budget ridotto, chi cerca adrenalina e chi cerca solo relax o ispirazione culturale. Ogni tipo di viaggiatore deve trovare almeno un dettaglio pensato per lui.${buildLearningBlock(insights)}
 
 Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
@@ -434,7 +478,7 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
   // che a questo punto è già salvato e online. L'esito viene comunque
   // restituito (non solo loggato) così da poterlo controllare direttamente
   // nella risposta JSON del cron, senza dover aprire i log di Vercel.
-  const articleUrl = `${getSiteUrl()}/enciclopedia/${slug}`;
+  const articleUrl = withUtm(`${getSiteUrl()}/enciclopedia/${slug}`, "article-post");
 
   // Instagram taglia le didascalie a 2200 caratteri: corpo + CTA + hashtag
   // devono starci per intero, quindi se serve si accorcia solo il corpo
