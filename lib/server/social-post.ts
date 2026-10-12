@@ -1,4 +1,5 @@
 import "server-only";
+import { getInstagramCredentials } from "./instagram-token";
 
 const GRAPH_VERSION = "v21.0";
 
@@ -41,17 +42,19 @@ export async function postToFacebookPage({ message, link }: { message: string; l
 
 // Pubblica una foto (con didascalia) sull'account Instagram collegato,
 // via "Instagram API with Instagram Login" (non richiede una Pagina
-// Facebook collegata). Richiede INSTAGRAM_USER_ID e un token ottenuto
-// visitando /admin/instagram-connect. Due passaggi come da API: crea il
+// Facebook collegata). Richiede il collegamento fatto da
+// /admin/instagram-connect (vedi instagram-token.ts). Due passaggi: crea il
 // "contenitore" media, poi lo pubblica.
 export async function postToInstagram({ imageUrl, caption }: { imageUrl: string; caption: string }): Promise<SocialPostResult> {
-  const userId = process.env.INSTAGRAM_USER_ID;
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
-  if (!userId || !token) {
-    const error = "INSTAGRAM_USER_ID o INSTAGRAM_ACCESS_TOKEN non configurate su Vercel.";
+  // Collegamento salvato da /admin/instagram-connect (rinnovato in automatico
+  // ogni mese), oppure le variabili d'ambiente come ripiego manuale.
+  const creds = await getInstagramCredentials({ refresh: true });
+  if (!creds) {
+    const error = "Instagram non collegato: apri /admin/instagram-connect per collegarlo.";
     console.error(error);
     return { ok: false, error };
   }
+  const { userId, token } = creds;
 
   try {
     const createRes = await fetch(`https://graph.instagram.com/${GRAPH_VERSION}/${userId}/media`, {
