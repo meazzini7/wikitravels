@@ -1,7 +1,21 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { getServiceAccountEmail } from "@/lib/server/ga-data";
-import { buildRecommendations, type GroupStat, type Insights } from "@/lib/server/performance-insights";
+import { buildRecommendations, type ArticleStat, type GroupStat, type Insights } from "@/lib/server/performance-insights";
+import type { HealthItem } from "@/lib/server/social-health";
+
+// Pensato prima per il telefono: poche cose per volta, numeri grandi, e tutto
+// ciò che è lungo sta dentro un "Mostra altro" richiudibile (nessun JavaScript
+// lato client: sono semplici <details>).
+
+const TOP_ARTICLES = 5;
+const VISIBLE_TIPS = 3;
+const VISIBLE_GROUPS = 5;
+const VISIBLE_PAGES = 6;
+
+function moreLabel(n: number, one: string, many: string): string {
+  return n === 1 ? one : `${many} ${n}`;
+}
 
 function fmt(n: number): string {
   return n.toLocaleString("it-IT");
@@ -13,95 +27,261 @@ function fmtDuration(seconds: number): string {
   return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 }
 
-export function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function ageLabel(days: number): string {
+  if (days < 1) return "oggi";
+  if (days < 2) return "ieri";
+  if (days < 60) return `${Math.round(days)} giorni fa`;
+  return `${Math.round(days / 30)} mesi fa`;
+}
+
+const CHANNEL_NAMES: Record<string, string> = {
+  "Organic Social": "Social (Facebook, Instagram)",
+  "Organic Search": "Google",
+  Direct: "Accesso diretto",
+  Referral: "Link da altri siti",
+  "Paid Social": "Social a pagamento",
+  Unassigned: "Non classificato",
+};
+
+const PAGE_NAMES: Record<string, string> = {
+  "/": "Home",
+  "/viaggi": "Viaggi della community",
+  "/viaggi/nuovo": "Crea un viaggio",
+  "/enciclopedia": "Enciclopedia (elenco)",
+  "/login": "Accedi",
+  "/registrati": "Registrati",
+  "/feed": "Feed",
+  "/classifica": "Classifica",
+  "/info": "Info",
+};
+
+export function Card({
+  emoji,
+  title,
+  hint,
+  children,
+}: {
+  emoji: string;
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="card-surface mb-6 p-4 sm:p-5">
-      <h2 className="font-heading text-lg font-bold text-gray-900">{title}</h2>
-      {subtitle && <p className="mb-3 text-sm text-gray-500">{subtitle}</p>}
-      {!subtitle && <div className="mb-3" />}
+    <section className="card-surface mb-4 p-4 sm:p-5">
+      <div className="mb-3 flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg" aria-hidden>
+          {emoji}
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-heading text-lg font-bold leading-tight text-gray-900">{title}</h2>
+          {hint && <p className="text-sm text-gray-500">{hint}</p>}
+        </div>
+      </div>
       {children}
     </section>
   );
 }
 
-function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; empty?: string }) {
-  if (rows.length === 0) return <p className="text-sm text-gray-500">{empty ?? "Nessun dato."}</p>;
+function More({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
-            {head.map((h) => (
-              <th key={h} className="whitespace-nowrap px-2 py-2 font-bold">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-gray-100 last:border-0">
-              {row.map((cell, j) => (
-                <td key={j} className="px-2 py-2 align-top">
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <details className="group mt-3">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-xl bg-gray-50 px-3 text-sm font-bold text-brand-700 [&::-webkit-details-marker]:hidden">
+        <span>{label}</span>
+        <span className="transition group-open:rotate-180" aria-hidden>
+          ⌄
+        </span>
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
   );
 }
 
-function IndexBadge({ index }: { index: number }) {
-  const tone =
-    index >= 1.3 ? "bg-green-100 text-green-800" : index <= 0.7 ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-800";
-  const icon = index >= 1.3 ? "🔥 " : index <= 0.7 ? "❄️ " : "";
-  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ${tone}`}>{icon}{index}×</span>;
-}
-
-function StatBox({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl bg-brand-50 p-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-brand-700">{label}</p>
-      <p className="font-heading text-2xl font-extrabold text-gray-900">{value}</p>
+    <div className="rounded-2xl bg-white/80 p-3 text-center shadow-soft">
+      <p className="font-heading text-3xl font-extrabold leading-none text-gray-900">{value}</p>
+      <p className="mt-1 text-xs font-bold uppercase tracking-wide text-brand-700">{label}</p>
       {hint && <p className="text-xs text-gray-500">{hint}</p>}
     </div>
   );
 }
 
-function ProgressRow({ label, value, goal }: { label: string; value: number; goal: number }) {
-  const pct = Math.min(100, Math.round((value / goal) * 100));
+function ArticleRow({ a, rank }: { a: ArticleStat; rank?: number }) {
   return (
-    <div className="mb-2">
-      <div className="flex justify-between text-sm">
-        <span className="text-gray-700">{label}</span>
-        <span className="font-bold text-gray-900">
-          {fmt(value)} / {fmt(goal)}
+    <li className="flex items-center gap-3 py-2.5">
+      {rank !== undefined && (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-extrabold text-brand-700">
+          {rank}
         </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <Link href={`/enciclopedia/${a.slug}`} className="line-clamp-2 text-sm font-bold text-gray-900 hover:text-brand-700">
+          {a.title}
+        </Link>
+        <p className="truncate text-xs text-gray-500">
+          {a.destination} · {ageLabel(a.ageDays)}
+          {a.status === "provisional" && " · in corso"}
+        </p>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-        <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+      <div className="shrink-0 text-right">
+        <p className="font-heading text-lg font-extrabold leading-none text-gray-900">{a.views}</p>
+        <p className="text-[11px] text-gray-500">
+          {a.views === 1 ? "visita" : "visite"}
+          {a.users > 0 && ` · lettura ${fmtDuration(a.avgEngagementSec)}`}
+        </p>
       </div>
-    </div>
+    </li>
   );
 }
 
-function groupRows(groups: GroupStat[], learningActive: boolean): ReactNode[][] {
-  return groups.map((g) => [
-    <span key="l" className="font-semibold text-gray-900">
-      {g.label}
-    </span>,
-    g.articles,
-    fmt(g.views),
-    g.avgScore,
-    <IndexBadge key="i" index={g.index} />,
-    learningActive ? `×${g.weight}` : "—",
-  ]);
+// Barra relativa alla media: il segno a metà corsa = "nella media", a destra
+// rende più della media. Quando i dati sono pochi i colori restano neutri,
+// per non suggerire vincitori che sono solo frutto del caso.
+function GroupBars({ groups, active }: { groups: GroupStat[]; active: boolean }) {
+  const rows = (items: GroupStat[]) => (
+    <ul className="space-y-3">
+      {items.map((g) => {
+        const pct = Math.max(4, Math.min(100, (g.index / 2) * 100));
+        const tone = g.index >= 1.3 ? "bg-green-500" : g.index <= 0.7 ? "bg-gray-300" : "bg-amber-400";
+        return (
+          <li key={g.key}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-sm font-semibold text-gray-900">{g.label}</span>
+              <span className="shrink-0 text-xs font-bold text-gray-600">{g.index}×</span>
+            </div>
+            <div className="relative mt-1 h-2.5 overflow-hidden rounded-full bg-gray-100">
+              <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+              <div className="absolute inset-y-0 left-1/2 w-px bg-gray-400/70" />
+            </div>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              {g.articles} {g.articles === 1 ? "articolo" : "articoli"} · {g.views} {g.views === 1 ? "visita" : "visite"} nella prima settimana
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  if (groups.length === 0) return <p className="text-sm text-gray-500">Servono ancora dei dati.</p>;
+
+  // Con pochi dati un moltiplicatore come "7×" è frutto del caso: meglio
+  // mostrare solo i conteggi veri, ordinati per visite, senza barre.
+  if (!active) {
+    const counts = [...groups].sort((a, b) => b.views - a.views || b.articles - a.articles);
+    const countRows = (items: GroupStat[]) => (
+      <ul className="divide-y divide-gray-100">
+        {items.map((g) => (
+          <li key={g.key} className="flex items-center justify-between gap-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">{g.label}</p>
+              <p className="text-[11px] text-gray-500">
+                {g.articles} {g.articles === 1 ? "articolo" : "articoli"}
+              </p>
+            </div>
+            <p className="shrink-0 text-right text-sm">
+              <span className="font-bold text-gray-900">{g.views}</span>{" "}
+              <span className="text-[11px] text-gray-500">{g.views === 1 ? "visita" : "visite"}</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+    );
+    return (
+      <>
+        {countRows(counts.slice(0, VISIBLE_GROUPS))}
+        {counts.length > VISIBLE_GROUPS && (
+          <More label={moreLabel(counts.length - VISIBLE_GROUPS, "Mostra 1 altro", "Mostra altri")}>
+            {countRows(counts.slice(VISIBLE_GROUPS))}
+          </More>
+        )}
+      </>
+    );
+  }
+
+  const shown = groups.slice(0, VISIBLE_GROUPS);
+  const rest = groups.slice(VISIBLE_GROUPS);
+  return (
+    <>
+      {rows(shown)}
+      {rest.length > 0 && <More label={moreLabel(rest.length, "Mostra 1 altro", "Mostra altri")}>{rows(rest)}</More>}
+    </>
+  );
 }
 
-const GROUP_HEAD = ["", "Articoli", "Visite", "Punteggio medio", "Resa vs media", "Peso nella scelta"];
+function SubTitle({ children }: { children: ReactNode }) {
+  return <h3 className="mb-2 mt-5 text-xs font-extrabold uppercase tracking-wide text-gray-500 first:mt-0">{children}</h3>;
+}
+
+export function HealthSection({
+  health,
+  gaOk,
+  secret,
+}: {
+  health: HealthItem[];
+  gaOk: boolean;
+  secret: string;
+}) {
+  const rows = [
+    ...health.map((h) => ({
+      key: h.key,
+      ok: h.ok,
+      label: h.key === "facebook" ? "Facebook" : "Instagram",
+      status: h.ok ? "Funziona" : /expired|scadut/i.test(h.detail) ? "Collegamento scaduto: va rinnovato" : "Non funziona",
+      detail: h.detail,
+      action:
+        !h.ok && h.key === "instagram"
+          ? { href: `/admin/instagram-connect?secret=${encodeURIComponent(secret)}`, label: "Rinnova Instagram" }
+          : null,
+    })),
+    {
+      key: "ga",
+      ok: gaOk,
+      label: "Google Analytics",
+      status: gaOk ? "Collegato" : "Da collegare (vedi sotto)",
+      detail: "",
+      action: null,
+    },
+  ];
+  const allOk = rows.every((r) => r.ok);
+
+  return (
+    <Card emoji={allOk ? "✅" : "⚠️"} title="Collegamenti" hint={allOk ? "Tutto funziona." : "Qualcosa richiede la tua attenzione."}>
+      <ul className="space-y-2">
+        {rows.map((r) =>
+          r.ok ? (
+            <li key={r.key} className="flex items-center justify-between gap-3 rounded-xl bg-green-50 px-3 py-2">
+              <p className="text-sm font-bold text-green-900">✅ {r.label}</p>
+              <p className="text-xs text-green-800">{r.status}</p>
+            </li>
+          ) : (
+            <li key={r.key} className="rounded-xl bg-red-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-red-900">⚠️ {r.label}</p>
+                  <p className="text-xs text-red-800">{r.status}</p>
+                </div>
+                {r.action && (
+                  <Link
+                    href={r.action.href}
+                    className="tap-scale flex min-h-[44px] shrink-0 items-center rounded-full bg-red-600 px-4 text-sm font-bold text-white"
+                  >
+                    {r.action.label}
+                  </Link>
+                )}
+              </div>
+              {r.detail && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-xs text-red-800 underline">Dettagli tecnici</summary>
+                  <p className="mt-1 break-words text-xs text-red-900">{r.detail}</p>
+                </details>
+              )}
+            </li>
+          )
+        )}
+      </ul>
+    </Card>
+  );
+}
 
 export function SetupGuide({ error }: { error: string | undefined }) {
   const email = getServiceAccountEmail();
@@ -114,11 +294,12 @@ export function SetupGuide({ error }: { error: string | undefined }) {
     : null;
   return (
     <Card
-      title="🔌 Collega Google Analytics"
-      subtitle="Per misurare cosa funziona serve far leggere al sito i dati di Google Analytics. Si fa una volta sola (3 passaggi):"
+      emoji="🔌"
+      title="Collega Google Analytics"
+      hint="Serve per misurare cosa funziona. Si fa una volta sola (3 passaggi)."
     >
       {error && (
-        <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="mb-3 break-words rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           <strong>Ultimo errore:</strong> {error}
         </p>
       )}
@@ -142,8 +323,8 @@ export function SetupGuide({ error }: { error: string | undefined }) {
         </li>
         <li>
           Vai su <strong>analytics.google.com</strong> → <strong>Amministrazione</strong> (ingranaggio in basso a sinistra) →{" "}
-          <strong>Gestione accesso alla proprietà</strong> → <strong>+</strong> → <strong>Aggiungi utenti</strong> → incolla questa
-          email e dai il ruolo <strong>Visualizzatore</strong>:
+          <strong>Gestione dell&apos;accesso all&apos;account</strong> → <strong>+</strong> → <strong>Aggiungi utenti</strong> →
+          incolla questa email, togli la spunta alla notifica e dai il ruolo <strong>Visualizzatore</strong>:
           <code className="mt-1 block break-all rounded-lg bg-gray-100 p-2 text-xs">
             {email ?? "(non riesco a leggerla: la trovi in Firebase → Impostazioni progetto → Account di servizio)"}
           </code>
@@ -158,135 +339,253 @@ export function SetupGuide({ error }: { error: string | undefined }) {
   );
 }
 
-export function DashboardView({ insights, base }: { insights: Insights; base: string }) {
+export function DashboardView({ insights }: { insights: Insights }) {
   const { learning, totals } = insights;
   const tips = buildRecommendations(insights);
   const engagedPct = totals.sessions > 0 ? Math.round((totals.engagedSessions / totals.sessions) * 100) : 0;
 
+  const visited = insights.articles.filter((a) => a.views > 0);
+  const unseen = insights.articles.filter((a) => a.views === 0 && a.ageDays >= 3);
+  const titleBySlug = new Map(insights.articles.map((a) => [a.slug, a.title]));
+  const progress = Math.min(100, Math.round((learning.totalViews / learning.minTotalViews) * 100));
+  const maxChannel = Math.max(1, ...insights.channels.map((c) => c.sessions));
+  const usedAngles = insights.promoAngles.filter((p) => p.posts > 0).sort((a, b) => b.sessions - a.sessions);
+  const unusedAngles = insights.promoAngles.filter((p) => p.posts === 0);
+
+  const pageName = (path: string): string => {
+    if (PAGE_NAMES[path]) return PAGE_NAMES[path];
+    const slug = path.replace(/^\/enciclopedia\//, "");
+    return path.startsWith("/enciclopedia/") ? (titleBySlug.get(slug) ?? slug) : path;
+  };
+
   return (
     <>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatBox label="Utenti attivi" value={fmt(totals.users)} hint={`ultimi ${insights.windowDays} giorni`} />
-        <StatBox label="Sessioni" value={fmt(totals.sessions)} />
-        <StatBox label="Pagine viste" value={fmt(totals.views)} />
-        <StatBox label="Sessioni coinvolte" value={`${engagedPct}%`} hint="restano oltre 10s o interagiscono" />
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Persone" value={fmt(totals.users)} hint={`ultimi ${insights.windowDays} giorni`} />
+        <Kpi label="Visite" value={fmt(totals.sessions)} />
+        <Kpi label="Pagine aperte" value={fmt(totals.views)} />
+        <Kpi label="Visite vere" value={`${engagedPct}%`} hint="restano più di 10 secondi" />
       </div>
 
-      <Card
-        title="🧠 Apprendimento del generatore"
-        subtitle={
-          learning.active
-            ? "Attivo: gli articoli e i post futuri vengono orientati verso ciò che rende di più (resta sempre il 25% di scelte libere per continuare a esplorare)."
-            : "In raccolta dati: finché i numeri sono pochi il generatore sceglie come sempre, per non farsi ingannare dal caso."
-        }
-      >
-        <ProgressRow label="Articoli con almeno 3 giorni di vita" value={learning.matureArticles} goal={learning.minMatureArticles} />
-        <ProgressRow label="Visite complessive agli articoli" value={learning.totalViews} goal={learning.minTotalViews} />
-      </Card>
-
-      <Card title="🎯 Dove spingere di più" subtitle="Indicazioni ricavate in automatico dai dati:">
+      <Card emoji="🎯" title="Cosa fare adesso" hint="Indicazioni ricavate in automatico dai dati.">
         {tips.length === 0 ? (
           <p className="text-sm text-gray-500">Ancora nessuna indicazione: serve un po&apos; di traffico.</p>
         ) : (
-          <ul className="space-y-2 text-sm text-gray-800">
-            {tips.map((tip, i) => (
-              <li key={i} className="rounded-xl bg-brand-50/60 p-3">
-                {tip}
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-2 text-sm text-gray-800">
+              {tips.slice(0, VISIBLE_TIPS).map((tip, i) => (
+                <li key={i} className="rounded-xl bg-brand-50/60 p-3">
+                  {tip}
+                </li>
+              ))}
+            </ul>
+            {tips.length > VISIBLE_TIPS && (
+              <More label={tips.length - VISIBLE_TIPS === 1 ? "1 altro consiglio" : `Altri ${tips.length - VISIBLE_TIPS} consigli`}>
+                <ul className="space-y-2 text-sm text-gray-800">
+                  {tips.slice(VISIBLE_TIPS).map((tip, i) => (
+                    <li key={i} className="rounded-xl bg-brand-50/60 p-3">
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </More>
+            )}
+          </>
         )}
       </Card>
 
       <Card
-        title="🏆 Classifica articoli"
-        subtitle="Punteggio = visite al giorno × (1 + minuti medi di lettura). Un buon indicatore di quanto renderebbe la pubblicità."
+        emoji="🧠"
+        title="Il sistema impara"
+        hint={
+          learning.active
+            ? "Attivo: articoli e post nuovi vengono orientati verso ciò che rende di più."
+            : "In raccolta dati: per ora sceglie come sempre, per non farsi ingannare dal caso."
+        }
       >
-        <Table
-          head={["#", "Articolo", "Età", "Visite", "Lettura media", "Punteggio"]}
-          empty="Nessun articolo pubblicato."
-          rows={insights.articles.slice(0, 40).map((a, i) => [
-            i + 1,
-            <div key="t">
-              <Link href={`/enciclopedia/${a.slug}`} className="font-semibold text-gray-900 hover:text-brand-700">
-                {a.title}
-              </Link>
-              <p className="text-xs text-gray-500">
-                {a.destination} · {a.vibe} · {a.titleStyle}
-              </p>
-            </div>,
-            `${Math.round(a.ageDays)}g`,
-            a.views,
-            a.users > 0 ? fmtDuration(a.avgEngagementSec) : "—",
-            <strong key="s">{a.score}</strong>,
-          ])}
-        />
+        <div className="mb-1 flex items-baseline justify-between text-sm">
+          <span className="text-gray-700">Visite raccolte per imparare</span>
+          <span className="font-bold text-gray-900">
+            {fmt(learning.totalViews)} / {fmt(learning.minTotalViews)}
+          </span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-full rounded-full bg-brand-500" style={{ width: `${progress}%` }} />
+        </div>
+        <More label="Come funziona">
+          <ul className="list-disc space-y-1.5 pl-5 text-sm text-gray-700">
+            <li>
+              Ogni articolo prende un punteggio: <strong>visite della prima settimana × tempo di lettura</strong>. Tutti sono
+              confrontati sullo stesso periodo, così un articolo nuovo non batte uno vecchio solo perché è fresco.
+            </li>
+            <li>
+              Conta solo chi ha almeno 7 giorni di vita ({learning.matureArticles} articoli per ora). Servono almeno{" "}
+              {learning.minMatureArticles} articoli e {learning.minTotalViews} visite per fidarsi dei confronti.
+            </li>
+            <li>Quando i dati bastano, temi e destinazioni che rendono di più escono più spesso.</li>
+            <li>Il 25% delle scelte resta sempre libero, per continuare a provare cose nuove.</li>
+          </ul>
+        </More>
       </Card>
 
-      <Card title="🧭 Resa per tema di viaggio" subtitle="Quali tipi di articolo funzionano meglio (media ridimensionata se i dati sono pochi).">
-        <Table head={GROUP_HEAD} rows={groupRows(insights.byVibe, learning.active)} empty="Dati insufficienti." />
+      <Card emoji="🏆" title="Articoli più visitati" hint="Dal più al meno visitato, negli ultimi 4 mesi.">
+        {visited.length === 0 ? (
+          <p className="text-sm text-gray-500">Nessun articolo ha ancora ricevuto visite.</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-gray-100">
+              {visited.slice(0, TOP_ARTICLES).map((a, i) => (
+                <ArticleRow key={a.slug} a={a} rank={i + 1} />
+              ))}
+            </ul>
+            {visited.length > TOP_ARTICLES && (
+              <More label={moreLabel(visited.length - TOP_ARTICLES, "Mostra 1 altro", "Mostra altri")}>
+                <ul className="divide-y divide-gray-100">
+                  {visited.slice(TOP_ARTICLES, 30).map((a, i) => (
+                    <ArticleRow key={a.slug} a={a} rank={TOP_ARTICLES + i + 1} />
+                  ))}
+                </ul>
+              </More>
+            )}
+          </>
+        )}
       </Card>
 
-      <Card title="🌍 Resa per fascia di destinazione" subtitle="Mete famosissime, molto note o di nicchia.">
-        <Table head={GROUP_HEAD} rows={groupRows(insights.byTier, learning.active)} empty="Dati insufficienti." />
-      </Card>
-
-      <Card title="✍️ Resa per tipo di titolo" subtitle="Domanda, numero, due punti o frase evocativa: quale attira più lettori.">
-        <Table head={GROUP_HEAD} rows={groupRows(insights.byTitleStyle, learning.active)} empty="Dati insufficienti." />
-      </Card>
+      {unseen.length > 0 && (
+        <Card emoji="💤" title="Articoli senza visite">
+          <p className="text-sm text-gray-700">
+            <span className="font-heading text-2xl font-extrabold text-gray-900">{unseen.length}</span>{" "}
+            {unseen.length === 1 ? "articolo non ha" : "articoli non hanno"} ancora ricevuto nemmeno una visita: Google e i social
+            non li hanno ancora scoperti.
+          </p>
+          <More label="Mostra l'elenco">
+            <ul className="divide-y divide-gray-100">
+              {[...unseen]
+                .sort((a, b) => a.ageDays - b.ageDays)
+                .slice(0, 40)
+                .map((a) => (
+                  <li key={a.slug} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <Link href={`/enciclopedia/${a.slug}`} className="min-w-0 flex-1 truncate font-semibold text-gray-900">
+                      {a.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-gray-500">{ageLabel(a.ageDays)}</span>
+                  </li>
+                ))}
+            </ul>
+            {unseen.length > 40 && <p className="mt-2 text-xs text-gray-500">…e altri {unseen.length - 40} più vecchi.</p>}
+          </More>
+        </Card>
+      )}
 
       <Card
-        title="📱 Post promozionali (solo social)"
-        subtitle="Visite portate da ciascun argomento grazie ai link tracciati; gli argomenti più efficaci escono più spesso."
+        emoji="🧭"
+        title="Cosa funziona di più"
+        hint={
+          learning.active
+            ? "La linea a metà barra è la media: più a destra rende di più."
+            : "Numeri solo indicativi finché i dati sono pochi."
+        }
       >
-        <Table
-          head={["Argomento", "Post usciti", "Visite portate", "Coinvolte", "Resa vs media"]}
-          rows={insights.promoAngles.map((p) => [
-            <span key="l" className="font-semibold text-gray-900">
-              {p.label}
-            </span>,
-            p.posts,
-            p.sessions,
-            p.engagedSessions,
-            <IndexBadge key="i" index={p.index} />,
-          ])}
-        />
+        <SubTitle>Per tema di viaggio</SubTitle>
+        <GroupBars groups={insights.byVibe} active={learning.active} />
+        <SubTitle>Per tipo di destinazione</SubTitle>
+        <GroupBars groups={insights.byTier} active={learning.active} />
+        <SubTitle>Per tipo di titolo</SubTitle>
+        <GroupBars groups={insights.byTitleStyle} active={learning.active} />
       </Card>
 
-      <div className="grid gap-x-6 md:grid-cols-2">
-        <Card title="📣 Da dove arrivano i visitatori">
-          <Table
-            head={["Canale", "Sessioni", "Coinvolte"]}
-            rows={insights.channels.map((c) => [c.channel, c.sessions, c.engagedSessions])}
-            empty="Nessun dato sui canali."
-          />
+      <Card emoji="📱" title="Post promozionali" hint="Visite portate da ciascun argomento (solo post sui social). Il conteggio parte da quando è stato attivato il tracciamento dei link.">
+        {usedAngles.length === 0 ? (
+          <p className="text-sm text-gray-500">Ancora nessun post promozionale misurato.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {usedAngles.map((p) => (
+              <li key={p.key} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900">{p.label}</p>
+                  <p className="text-xs text-gray-500">
+                    {p.posts} {p.posts === 1 ? "post uscito" : "post usciti"}
+                  </p>
+                </div>
+                <p className="shrink-0 text-right">
+                  <span className="font-heading text-lg font-extrabold text-gray-900">{p.sessions}</span>{" "}
+                  <span className="text-[11px] text-gray-500">{p.sessions === 1 ? "visita" : "visite"}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {unusedAngles.length > 0 && (
+          <p className="mt-2 text-xs text-gray-500">Non ancora usati: {unusedAngles.map((p) => p.label).join(", ")}.</p>
+        )}
+      </Card>
+
+      <div className="grid gap-x-4 lg:grid-cols-2">
+        <Card emoji="📣" title="Da dove arrivano">
+          {insights.channels.length === 0 ? (
+            <p className="text-sm text-gray-500">Nessun dato sui canali.</p>
+          ) : (
+            <ul className="space-y-3">
+              {insights.channels.map((c) => (
+                <li key={c.channel}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-gray-900">
+                      {CHANNEL_NAMES[c.channel] ?? c.channel}
+                    </span>
+                    <span className="shrink-0 text-sm font-bold text-gray-900">{c.sessions}</span>
+                  </div>
+                  <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-full rounded-full bg-brand-200" style={{ width: `${(c.sessions / maxChannel) * 100}%` }}>
+                      <div
+                        className="h-full rounded-full bg-brand-500"
+                        style={{ width: `${c.sessions > 0 ? (c.engagedSessions / c.sessions) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    {c.engagedSessions} su {c.sessions} sono restati davvero
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
-        <Card title="📄 Pagine più viste">
-          <Table
-            head={["Pagina", "Visite", "Lettura media"]}
-            rows={insights.topPages.map((p) => [
-              <span key="p" className="break-all">
-                {p.path}
-              </span>,
-              p.views,
-              p.users > 0 ? fmtDuration(p.avgEngagementSec) : "—",
-            ])}
-            empty="Nessun dato sulle pagine."
-          />
+
+        <Card emoji="📄" title="Pagine più viste">
+          {insights.topPages.length === 0 ? (
+            <p className="text-sm text-gray-500">Nessun dato sulle pagine.</p>
+          ) : (
+            <>
+              <ul className="divide-y divide-gray-100">
+                {insights.topPages.slice(0, VISIBLE_PAGES).map((p) => (
+                  <li key={p.path} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="line-clamp-2 min-w-0 flex-1 font-semibold text-gray-900">{pageName(p.path)}</span>
+                    <span className="shrink-0 font-bold text-gray-900">{p.views}</span>
+                  </li>
+                ))}
+              </ul>
+              {insights.topPages.length > VISIBLE_PAGES && (
+                <More label={moreLabel(insights.topPages.length - VISIBLE_PAGES, "Mostra 1 altra", "Mostra altre")}>
+                  <ul className="divide-y divide-gray-100">
+                    {insights.topPages.slice(VISIBLE_PAGES).map((p) => (
+                      <li key={p.path} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="line-clamp-2 min-w-0 flex-1 text-gray-900">{pageName(p.path)}</span>
+                        <span className="shrink-0 font-bold text-gray-900">{p.views}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </More>
+              )}
+            </>
+          )}
         </Card>
       </div>
 
       {insights.warnings.length > 0 && (
-        <p className="mb-6 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+        <p className="mb-4 break-words rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
           Alcuni dati secondari non sono disponibili: {insights.warnings.join(" · ")}
         </p>
       )}
-
-      <p className="text-center text-xs text-gray-400">
-        <Link href={`${base}&refresh=1`} className="underline">
-          Aggiorna i dati adesso
-        </Link>
-      </p>
     </>
   );
 }

@@ -9,10 +9,20 @@ import { isGaConfigured, runGaReport, type GaReportRow } from "./ga-data";
 // punteggio di resa e ne ricava pesi con cui il generatore sceglie temi e
 // argomenti. Alimenta anche il pannello /admin/dashboard.
 
+// Versione della struttura dello snapshot salvato: se cambia, i vecchi
+// snapshot in cache vengono ignorati invece di rompere il pannello.
+export const SCHEMA_VERSION = 2;
+// Finestra per totali, canali, campagne e pagine più viste.
 export const WINDOW_DAYS = 28;
-// Un articolo appena uscito non ha ancora avuto il tempo di raccogliere
-// visite: prima di questa età non entra nelle medie (né nel bene né nel male).
-const MATURE_AFTER_DAYS = 3;
+// Per gli articoli serve guardare più indietro: si confronta la PRIMA
+// SETTIMANA di ciascuno, quindi anche quelli di mesi fa devono avere la loro
+// prima settimana dentro la finestra.
+export const LOOKBACK_DAYS = 120;
+export const FIRST_WEEK_DAYS = 7;
+// Confronto equo: il traffico di un articolo è concentrato nei primi giorni
+// (il post sui social), quindi si confrontano solo articoli che hanno già
+// avuto la loro prima settimana intera. Quelli più recenti sono "in corso".
+const MATURE_AFTER_DAYS = FIRST_WEEK_DAYS;
 // Con poche visite i numeri sono rumore: il sistema comincia a orientare la
 // generazione solo oltre queste soglie, prima sceglie come ha sempre fatto.
 const MIN_MATURE_ARTICLES = 6;
@@ -29,6 +39,11 @@ export const EXPLORE_PROBABILITY = 0.25;
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// provisional = ha meno di una settimana di vita (dati ancora in corso);
+// comparable = ha avuto la prima settimana intera, entra nei confronti;
+// outdated = più vecchio della finestra, la sua prima settimana non è più visibile.
+export type ArticleStatus = "provisional" | "comparable" | "outdated";
+
 export interface ArticleStat {
   slug: string;
   title: string;
@@ -37,10 +52,10 @@ export interface ArticleStat {
   tier: number;
   titleStyle: string;
   ageDays: number;
+  status: ArticleStatus;
   views: number;
+  weekViews: number;
   users: number;
-  sessions: number;
-  engagedSessions: number;
   avgEngagementSec: number;
   score: number;
 }
@@ -80,6 +95,7 @@ export interface PageStat {
 }
 
 export interface Insights {
+  schemaVersion: number;
   generatedAt: number;
   windowDays: number;
   totals: { users: number; sessions: number; views: number; engagedSessions: number };
@@ -160,7 +176,7 @@ function buildGroups(
         key,
         label: labelOf(key),
         articles: n,
-        views: items.reduce((sum, a) => sum + a.views, 0),
+        views: items.reduce((sum, a) => sum + a.weekViews, 0),
         avgScore: round(mean),
         index: round(index),
         weight: round(clamp(index, WEIGHT_MIN, WEIGHT_MAX)),
@@ -193,19 +209,15 @@ async function computeInsights(): Promise<Insights> {
   // far perdere tutto il resto: solo i dati sugli articoli sono vitali.
   const [pagesR, totalsR, channelsR, campaignsR, topPagesR] = await Promise.allSettled([
     runGaReport({
-      dateRanges,
-      dimensions: [{ name: "pagePath" }],
-      metrics: [
-        { name: "screenPageViews" },
-        { name: "activeUsers" },
-        { name: "sessions" },
-        { name: "engagedSessions" },
-        { name: "userEngagementDuration" },
-      ],
+      // Pagina x giorno su una finestra lunga: serve a isolare la PRIMA
+      // SETTIMANA di ogni articolo per confrontarli ad armi pari.
+      dateRanges: [{ startDate: `${LOOKBACK_DAYS}daysAgo`, endDate: "today" }],
+      dimensions: [{ name: "pagePath" }, { name: "date" }],
+      metrics: [{ name: "screenPageViews" }, { name: "activeUsers" }, { name: "userEngagementDuration" }],
       dimensionFilter: {
         filter: { fieldName: "pagePath", stringFilter: { matchType: "BEGINS_WITH", value: "/enciclopedia/" } },
       },
-      limit: 1000,
+      limit: 100000,
     }),
     runGaReport({
       dateRanges,
@@ -305,29 +317,40 @@ export interface InsightsInputs {
 export function buildInsights(input: InsightsInputs): Insights {
   const { now, totalsRows, channelRows, campaignRows, topPageRows, warnings } = input;
 
-  // --- Articoli: dati GA (per slug) incrociati con i documenti Firestore.
-  const gaBySlug = new Map<string, number[]>();
+  // --- Articoli: righe GA (pagina x giorno) raggruppate per slug, poi
+  // incrociate con i documenti Firestore.
+  const gaBySlug = new Map<string, { dayMs: number; views: number; users: number; eng: number }[]>();
   for (const row of input.pageRows) {
     const slug = row.dimensions[0].replace(/^\/enciclopedia\//, "").replace(/[/?#].*$/, "");
-    if (!slug) continue;
-    const acc = gaBySlug.get(slug) ?? [0, 0, 0, 0, 0];
-    row.metrics.forEach((m, i) => {
-      acc[i] = (acc[i] ?? 0) + m;
-    });
-    gaBySlug.set(slug, acc);
+    const dateStr = row.dimensions[1] ?? "";
+    if (!slug || !/^\d{8}$/.test(dateStr)) continue;
+    const dayMs = Date.UTC(+dateStr.slice(0, 4), +dateStr.slice(4, 6) - 1, +dateStr.slice(6, 8));
+    gaBySlug.set(slug, [
+      ...(gaBySlug.get(slug) ?? []),
+      { dayMs, views: row.metrics[0] ?? 0, users: row.metrics[1] ?? 0, eng: row.metrics[2] ?? 0 },
+    ]);
   }
 
   const articles: ArticleStat[] = input.articles.map((doc) => {
-    const ageDays = doc.createdAtMs ? Math.max(0, (now - doc.createdAtMs) / DAY_MS) : WINDOW_DAYS;
-    const [views, users, sessions, engagedSessions, engagementSeconds] = gaBySlug.get(doc.id) ?? [0, 0, 0, 0, 0];
-    // Normalizzato per i giorni di "esposizione": un articolo vecchio ha
-    // avuto più tempo per accumulare visite di uno uscito ieri.
-    const exposureDays = clamp(ageDays, MATURE_AFTER_DAYS, WINDOW_DAYS);
-    const avgEngagementSec = users > 0 ? engagementSeconds / users : 0;
-    // Punteggio di resa: traffico giornaliero x profondità di lettura. È un
-    // buon indicatore di quanto un contenuto farebbe rendere la pubblicità
-    // (più persone che restano più a lungo = più impressioni utili).
-    const score = (views / exposureDays) * (1 + Math.min(avgEngagementSec, 180) / 60);
+    const ageDays = doc.createdAtMs ? Math.max(0, (now - doc.createdAtMs) / DAY_MS) : LOOKBACK_DAYS + 1;
+    const status: ArticleStatus =
+      ageDays < MATURE_AFTER_DAYS ? "provisional" : ageDays > LOOKBACK_DAYS ? "outdated" : "comparable";
+    const rows = gaBySlug.get(doc.id) ?? [];
+    const createdDay = doc.createdAtMs ? Math.floor(doc.createdAtMs / DAY_MS) * DAY_MS : null;
+    const weekRows =
+      createdDay === null
+        ? []
+        : rows.filter((r) => r.dayMs >= createdDay && r.dayMs < createdDay + FIRST_WEEK_DAYS * DAY_MS);
+    const views = rows.reduce((sum, r) => sum + r.views, 0);
+    const weekViews = weekRows.reduce((sum, r) => sum + r.views, 0);
+    const weekUsers = weekRows.reduce((sum, r) => sum + r.users, 0);
+    const weekEngagement = weekRows.reduce((sum, r) => sum + r.eng, 0);
+    const avgEngagementSec = weekUsers > 0 ? weekEngagement / weekUsers : 0;
+    // Punteggio di resa: visite della prima settimana x profondità di
+    // lettura. Stessa base per tutti gli articoli, quindi confrontabili. È
+    // un buon indicatore di quanto un contenuto farebbe rendere la
+    // pubblicità (più persone che restano più a lungo = più impressioni).
+    const score = weekViews * (1 + Math.min(avgEngagementSec, 180) / 60);
     const title = String(doc.title ?? doc.id);
     return {
       slug: doc.id,
@@ -337,18 +360,19 @@ export function buildInsights(input: InsightsInputs): Insights {
       tier: Number(doc.tier ?? 0),
       titleStyle: titleStyle(title),
       ageDays: round(ageDays, 1),
+      status,
       views,
-      users,
-      sessions,
-      engagedSessions,
+      weekViews,
+      users: weekUsers,
       avgEngagementSec: round(avgEngagementSec, 1),
       score: round(score),
     };
   });
-  articles.sort((a, b) => b.score - a.score);
+  // Ordine di lettura: più visitati prima, a parità i più coinvolgenti.
+  articles.sort((a, b) => b.views - a.views || b.score - a.score);
 
-  const mature = articles.filter((a) => a.ageDays >= MATURE_AFTER_DAYS);
-  const matureViews = mature.reduce((sum, a) => sum + a.views, 0);
+  const mature = articles.filter((a) => a.status === "comparable");
+  const matureViews = mature.reduce((sum, a) => sum + a.weekViews, 0);
   const globalMean = mature.length > 0 ? mature.reduce((sum, a) => sum + a.score, 0) / mature.length : 0;
 
   const byVibe = buildGroups(mature, (a) => a.vibe || "(senza tema)", (k) => k, globalMean);
@@ -386,6 +410,7 @@ export function buildInsights(input: InsightsInputs): Insights {
   }).sort((a, b) => b.index - a.index);
 
   return {
+    schemaVersion: SCHEMA_VERSION,
     generatedAt: now,
     windowDays: WINDOW_DAYS,
     totals: {
@@ -434,7 +459,12 @@ export async function getInsights(options: { force?: boolean } = {}): Promise<In
   try {
     ref = getAdminDb().collection("analytics").doc("insights");
     const snap = await ref.get();
-    if (snap.exists) cached = snap.data() as Insights;
+    if (snap.exists) {
+      const data = snap.data() as Insights;
+      // Snapshot salvato con una struttura vecchia: meglio ignorarlo che
+      // mostrare un pannello rotto.
+      if (data.schemaVersion === SCHEMA_VERSION) cached = data;
+    }
   } catch (err) {
     console.error("Impossibile leggere lo snapshot degli insight:", err);
   }
@@ -504,10 +534,10 @@ export function weightFor(groups: GroupStat[] | PromoAngleStat[] | undefined, ke
   return groups?.find((g) => g.key === key)?.weight ?? 1;
 }
 
-// Articoli di esempio per il prompt: i più riusciti e i meno riusciti tra
-// quelli con abbastanza storia (almeno una settimana) per giudicarli.
+// Articoli di esempio per il prompt: i più e i meno riusciti tra quelli
+// confrontabili (prima settimana completa), giudicati dal punteggio.
 export function pickExamples(insights: Insights, count = 3): { best: ArticleStat[]; weakest: ArticleStat[] } {
-  const judged = insights.articles.filter((a) => a.ageDays >= 7);
+  const judged = insights.articles.filter((a) => a.status === "comparable").sort((a, b) => b.score - a.score);
   const best = judged.filter((a) => a.score > 0).slice(0, count);
   const bestSlugs = new Set(best.map((a) => a.slug));
   const weakest = [...judged]
@@ -518,62 +548,42 @@ export function pickExamples(insights: Insights, count = 3): { best: ArticleStat
 }
 
 // --- Consigli "dove spingere", in italiano semplice, per il pannello ---
+// Ordinati per importanza: il pannello ne mostra i primi e nasconde il resto.
+// Le promesse sul comportamento del generatore si fanno SOLO quando
+// l'apprendimento è attivo; prima i confronti sono troppo fragili.
 
 export function buildRecommendations(insights: Insights): string[] {
   const tips: string[] = [];
-  const mature = insights.articles.filter((a) => a.ageDays >= MATURE_AFTER_DAYS);
   const { learning } = insights;
+  const comparable = insights.articles.filter((a) => a.status === "comparable");
+  const seen = insights.articles.filter((a) => a.views > 0);
 
   if (!learning.active) {
+    const missing = Math.max(0, learning.minTotalViews - learning.totalViews);
     tips.push(
-      `🌱 Dati ancora pochi (${learning.matureArticles} articoli maturi, ${learning.totalViews} visite negli ultimi ${insights.windowDays} giorni): ` +
-        `il sistema comincerà a orientare la generazione dopo almeno ${learning.minMatureArticles} articoli e ${learning.minTotalViews} visite. ` +
-        `Fino ad allora sceglie come ha sempre fatto — più traffico porti dai social, prima impara.`
+      `🌱 Il sistema sta ancora raccogliendo dati: mancano ${missing} visite alle prime settimane degli articoli per cominciare a orientare la generazione. ` +
+        `Nel frattempo sceglie temi e destinazioni come ha sempre fatto. Più traffico porti dai social, prima impara.`
     );
-  }
-
-  const bestVibe = insights.byVibe.find((g) => g.articles >= 2 && g.index >= 1.3);
-  if (bestVibe) {
-    tips.push(
-      `🔥 I temi "${bestVibe.label}" rendono ${bestVibe.index}× la media: il generatore li sceglierà più spesso. ` +
-        `Rilancia sui social gli articoli già pubblicati su questo tema.`
-    );
-  }
-  const worstVibe = [...insights.byVibe].reverse().find((g) => g.articles >= 2 && g.index <= 0.7);
-  if (worstVibe) {
-    tips.push(`❄️ I temi "${worstVibe.label}" rendono solo ${worstVibe.index}× la media: verranno scelti meno spesso.`);
-  }
-
-  const bestTier = insights.byTier.find((g) => g.articles >= 2 && g.index >= 1.3);
-  if (bestTier) {
-    tips.push(`🎯 Le "${bestTier.label}" funzionano meglio delle altre (${bestTier.index}× la media).`);
-  }
-
-  const bestStyle = insights.byTitleStyle.find((g) => g.articles >= 2 && g.index >= 1.3);
-  if (bestStyle) {
-    tips.push(`✍️ Tipo di titolo vincente finora: "${bestStyle.label}" (${bestStyle.index}× la media).`);
-  }
-
-  const top = insights.articles[0];
-  if (top && top.views > 0) {
-    tips.push(
-      `🏆 Articolo più forte: "${top.title}" (${top.views} visite, ${Math.round(top.avgEngagementSec)}s di lettura media). ` +
-        `Condividilo di nuovo e collegalo dagli altri articoli della stessa destinazione.`
-    );
-  }
-
-  // Si leggono molto ma si vedono poco: contenuto buono, serve solo visibilità.
-  const median = [...mature].map((a) => a.views).sort((a, b) => a - b)[Math.floor(mature.length / 2)] ?? 0;
-  const hiddenGems = mature.filter((a) => a.users >= 2 && a.avgEngagementSec >= 45 && a.views <= median).slice(0, 3);
-  if (hiddenGems.length > 0) {
-    tips.push(
-      `💎 Pochi li aprono ma chi arriva legge a lungo: ${hiddenGems.map((a) => `"${a.title}"`).join(", ")}. ` +
-        `Sono gemme da spingere di più sui social.`
-    );
+  } else {
+    const bestVibe = insights.byVibe.find((g) => g.articles >= 2 && g.index >= 1.3);
+    if (bestVibe) {
+      tips.push(
+        `🔥 I temi "${bestVibe.label}" rendono ${bestVibe.index}× la media: il generatore li sceglierà più spesso. ` +
+          `Rilancia sui social gli articoli già pubblicati su questo tema.`
+      );
+    }
+    const worstVibe = [...insights.byVibe].reverse().find((g) => g.articles >= 2 && g.index <= 0.7);
+    if (worstVibe) {
+      tips.push(`❄️ I temi "${worstVibe.label}" rendono solo ${worstVibe.index}× la media: verranno scelti meno spesso.`);
+    }
+    const bestTier = insights.byTier.find((g) => g.articles >= 2 && g.index >= 1.3);
+    if (bestTier) tips.push(`🎯 Le "${bestTier.label}" funzionano meglio delle altre (${bestTier.index}× la media).`);
+    const bestStyle = insights.byTitleStyle.find((g) => g.articles >= 2 && g.index >= 1.3);
+    if (bestStyle) tips.push(`✍️ Tipo di titolo vincente finora: "${bestStyle.label}" (${bestStyle.index}× la media).`);
   }
 
   // Si aprono ma si abbandonano subito: il titolo promette più del contenuto.
-  const bounced = mature.filter((a) => a.views >= 5 && a.avgEngagementSec < 15).slice(0, 3);
+  const bounced = seen.filter((a) => a.views >= 5 && a.avgEngagementSec < 15).slice(0, 3);
   if (bounced.length > 0) {
     tips.push(
       `🚪 Molti li aprono ma se ne vanno subito: ${bounced.map((a) => `"${a.title}"`).join(", ")}. ` +
@@ -581,7 +591,25 @@ export function buildRecommendations(insights: Insights): string[] {
     );
   }
 
-  const unseen = mature.filter((a) => a.ageDays >= 14 && a.views === 0);
+  // Si leggono molto ma si vedono poco: contenuto buono, serve solo visibilità.
+  const median = [...comparable].map((a) => a.views).sort((a, b) => a - b)[Math.floor(comparable.length / 2)] ?? 0;
+  const hiddenGems = comparable.filter((a) => a.users >= 2 && a.avgEngagementSec >= 45 && a.views <= median).slice(0, 3);
+  if (hiddenGems.length > 0) {
+    tips.push(
+      `💎 Pochi li aprono ma chi arriva legge a lungo: ${hiddenGems.map((a) => `"${a.title}"`).join(", ")}. ` +
+        `Sono gemme da spingere di più sui social.`
+    );
+  }
+
+  const top = seen[0];
+  if (top) {
+    tips.push(
+      `🏆 L'articolo più visitato è "${top.title}" (${top.views} ${top.views === 1 ? "visita" : "visite"}). ` +
+        `Condividilo di nuovo e collegalo dagli altri articoli della stessa destinazione.`
+    );
+  }
+
+  const unseen = insights.articles.filter((a) => a.ageDays >= 14 && a.views === 0);
   if (unseen.length > 0) {
     tips.push(
       `👻 ${unseen.length} ${unseen.length === 1 ? "articolo con almeno 2 settimane di vita non ha" : "articoli con almeno 2 settimane di vita non hanno"} avuto nemmeno una visita: ` +
@@ -593,7 +621,7 @@ export function buildRecommendations(insights: Insights): string[] {
   if (bestChannel) {
     tips.push(
       `📣 Il canale che oggi porta più visitatori è "${bestChannel.channel}" ` +
-        `(${bestChannel.sessions} sessioni, ${bestChannel.engagedSessions} davvero coinvolte).`
+        `(${bestChannel.sessions} visite, ${bestChannel.engagedSessions} davvero coinvolte).`
     );
   }
 
