@@ -7,7 +7,7 @@ const siteUrl = getSiteUrl();
 // Senza questa, ogni visita a /sitemap.xml (anche dai crawler, che la
 // rivisitano spesso) rileggeva TUTTI gli articoli e i viaggi pubblici da
 // Firestore da zero. Un'ora di cache è più che sufficiente per una sitemap.
-export const revalidate = 3600;
+export const revalidate = 43200;
 
 function toDate(value: unknown): Date | undefined {
   if (value instanceof Date) return value;
@@ -31,11 +31,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const [articlesSnap, tripsSnap] = await Promise.all([
-      getAdminDb().collection("articles").where("status", "==", "published").get(),
+      getAdminDb().collection("articles").where("status", "==", "published").select("createdAt").get(),
       getAdminDb()
         .collection("trips")
         .where("status", "==", "published")
         .where("visibility", "==", "public")
+        .select("updatedAt")
         .get(),
     ]);
     const articleRoutes: MetadataRoute.Sitemap = articlesSnap.docs.map((d) => {

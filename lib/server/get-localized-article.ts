@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { getAdminDb } from "../firebase-admin";
 import { translateArticleContent } from "./translate-article";
 import { DEFAULT_LOCALE, type Locale } from "../i18n/config";
@@ -24,6 +25,33 @@ function withOriginal(article: Article): LocalizedArticle {
   };
 }
 
+function tsToIso(value: unknown): string | undefined {
+  if (value && typeof value === "object" && "toDate" in value && typeof (value as { toDate: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return undefined;
+}
+
+// Documento articolo in italiano (la lingua di default, quella di quasi tutto
+// il traffico) nella Data Cache di Next: la pagina e' dinamica perche' legge
+// il cookie lingua, ma almeno non rilegge da Firestore (e non rideserializza
+// tutto il contentHtml) a ogni singola visita. Invalidata dal cron alla
+// pubblicazione (tag "articles"). Per le altre lingue si legge sempre il
+// documento fresco: la traduzione viene scritta al volo e non deve risultare
+// "mancante" a causa di una copia in cache.
+const getCachedArticleDoc = unstable_cache(
+  async (slug: string): Promise<Article | null> => {
+    const snap = await getAdminDb().collection("articles").doc(slug).get();
+    if (!snap.exists) return null;
+    const data = snap.data() as Article;
+    // I Timestamp non sopravvivono alla serializzazione della cache: li
+    // convertiamo in stringa ISO (la pagina la gestisce).
+    return { ...data, createdAt: tsToIso(data.createdAt) ?? data.createdAt };
+  },
+  ["article-doc-v1"],
+  { revalidate: 43200, tags: ["articles"] }
+);
+
 // cache(): dedupe entro la stessa richiesta HTTP. generateMetadata() e il
 // componente della pagina chiedono entrambi lo stesso slug+lingua: senza
 // questo, tradurrebbero due volte lo stesso articolo (doppio costo Gemini).
@@ -31,12 +59,15 @@ export const getLocalizedArticle = cache(async function getLocalizedArticle(
   slug: string,
   locale: Locale
 ): Promise<LocalizedArticle | null> {
+  if (locale === DEFAULT_LOCALE) {
+    const cachedArticle = await getCachedArticleDoc(slug);
+    return cachedArticle ? withOriginal(cachedArticle) : null;
+  }
+
   const ref = getAdminDb().collection("articles").doc(slug);
   const snap = await ref.get();
   if (!snap.exists) return null;
   const article = snap.data() as Article;
-
-  if (locale === DEFAULT_LOCALE) return withOriginal(article);
 
   const cached = article.translations?.[locale];
   if (cached) {

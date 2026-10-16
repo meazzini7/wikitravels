@@ -9,7 +9,7 @@ import RecommendedArticles from "@/components/RecommendedArticles";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import type { Article } from "@/lib/types";
 
-export const revalidate = 3600;
+export const revalidate = 21600;
 
 export const metadata: Metadata = {
   title: "Enciclopedia dei viaggi",
@@ -24,6 +24,7 @@ async function getArticles(): Promise<Article[]> {
       .collection("articles")
       .where("status", "==", "published")
       .orderBy("createdAt", "desc")
+      .select("slug", "title", "destination", "coverImageUrl", "scores", "seo")
       .limit(60)
       .get();
     return snap.docs.map((d) => d.data() as Article);

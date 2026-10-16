@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { generateArticle } from "../../../../scripts/generate-article";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
       revalidatePath("/enciclopedia");
       revalidatePath(`/enciclopedia/${result.slug}`);
       revalidatePath("/sitemap.xml");
+      revalidateTag("articles");
     }
     return NextResponse.json({ ok: true, result });
   } catch (err) {

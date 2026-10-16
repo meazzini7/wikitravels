@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
       lng: Number(item.lon),
       countryCode: item.address?.country_code?.toLowerCase() ?? "",
     }));
-    return NextResponse.json(results);
+    // Stesse ricerche = stessi risultati: la CDN li serve senza rieseguire la funzione.
+    return NextResponse.json(results, {
+      headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" },
+    });
   } catch (err) {
     console.error("Ricerca Nominatim fallita:", err);
     return NextResponse.json([]);

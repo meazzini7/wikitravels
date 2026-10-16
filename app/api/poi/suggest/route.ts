@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const names = await getPoiSuggestions(place, exclude);
-    return NextResponse.json({ names });
+    return NextResponse.json(
+      { names },
+      { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } }
+    );
   } catch (err) {
     console.error(`Impossibile suggerire punti di interesse per "${place}":`, err);
     return NextResponse.json({ names: [] });

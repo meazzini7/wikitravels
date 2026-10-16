@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
@@ -12,22 +13,41 @@ import FlamingoMascot from "@/components/FlamingoMascot";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import type { Article } from "@/lib/types";
 
-async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
-  try {
-    const snap = await getAdminDb()
-      .collection("articles")
-      .where("status", "==", "published")
-      .orderBy("createdAt", "desc")
-      .limit(7)
-      .get();
-    return snap.docs
-      .map((d) => d.data() as Article)
-      .filter((a) => a.slug !== currentSlug)
-      .slice(0, 3);
-  } catch (err) {
-    console.error("Impossibile caricare gli articoli correlati:", err);
-    return [];
-  }
+type RelatedArticle = Pick<Article, "slug" | "title" | "destination" | "coverImageUrl">;
+
+// Solo i 4 campi mostrati nelle card (prima si leggevano 7 documenti interi,
+// contentHtml compreso, ad ogni visita) e risultato condiviso in Data Cache.
+const getLatestArticles = unstable_cache(
+  async (): Promise<RelatedArticle[]> => {
+    try {
+      const snap = await getAdminDb()
+        .collection("articles")
+        .where("status", "==", "published")
+        .orderBy("createdAt", "desc")
+        .select("slug", "title", "destination", "coverImageUrl")
+        .limit(7)
+        .get();
+      return snap.docs.map((d) => {
+        const a = d.data();
+        return {
+          slug: a.slug,
+          title: a.title,
+          destination: a.destination,
+          coverImageUrl: a.coverImageUrl ?? null,
+        };
+      });
+    } catch (err) {
+      console.error("Impossibile caricare gli articoli correlati:", err);
+      return [];
+    }
+  },
+  ["latest-articles-v1"],
+  { revalidate: 21600, tags: ["articles"] }
+);
+
+async function getRelatedArticles(currentSlug: string): Promise<RelatedArticle[]> {
+  const latest = await getLatestArticles();
+  return latest.filter((a) => a.slug !== currentSlug).slice(0, 3);
 }
 
 export async function generateStaticParams() {
@@ -74,6 +94,7 @@ export async function generateMetadata({
 }
 
 function toIsoDate(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
   if (value instanceof Date) return value.toISOString();
   if (
     value &&
