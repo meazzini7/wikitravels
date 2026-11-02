@@ -208,7 +208,7 @@ function buildLearningBlock(insights: Insights | null): string {
 //    principale: un fallimento qui degrada a valori di default invece di
 //    far fallire l'intera generazione.
 // ------------------------------------------------------------------
-async function generateMetadata(title: string, dest: string, vibe: string, articleExcerpt: string) {
+export async function generateMetadata(title: string, dest: string, vibe: string, articleExcerpt: string) {
   const prompt = `Sei un esperto di viaggi, SEO e social media. Per il viaggio "${title}" (destinazione: ${dest}, tipo: ${vibe}):
 1. Assegna un punteggio da 0 a 10 per ciascuno di questi interessi: ${INTEREST_KEYS.join(", ")}.
 2. Scrivi un meta title SEO accattivante, MAX 60 caratteri.
@@ -322,35 +322,23 @@ const ARTICLE_MODEL_TIMEOUT_MS = 30_000;
 // Aggiunto dal codice (non dall'AI) in fondo a ogni articolo, così c'è sempre.
 const ARTICLE_FOOTER_HTML = `<p><em>⚠️ Prezzi, orari e periodi sono indicativi e possono cambiare. Per documenti, requisiti d'ingresso e sicurezza del Paese consulta sempre il sito ufficiale <a href="https://www.viaggiaresicuri.it" target="_blank" rel="noopener noreferrer">Viaggiare Sicuri</a> del Ministero degli Esteri e le fonti ufficiali dei luoghi da visitare. Se trovi un errore in questa guida, scrivici dalla pagina Contatti.</em></p>`;
 
-// ------------------------------------------------------------------
-// 5. MAIN
-// ------------------------------------------------------------------
-export async function generateArticle() {
-  // Dati di resa dei contenuti passati (null finché sono troppo pochi per
-  // fidarsene): orientano scelta di fascia/tema ed esempi nel prompt.
-  const insights = await getLearningInsights();
-  const dest = await pickNextDestination(insights);
-  const vibe = pickVibe(insights);
-  // internalKey: identificatore prevedibile (destinazione+tema) usato SOLO
-  // per slug/URL e anti-duplicati. Il titolo mostrato ai lettori \u00e8 invece
-  // scritto dall'AI (vedi masterPrompt sotto) per essere un vero titolo
-  // editoriale, vario da un articolo all'altro, non un template ripetitivo.
-  const internalKey = `${dest.name}: ${vibe.label}`;
-  const slug = internalKey
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  const existing = await getAdminDb().collection("articles").doc(slug).get();
-  if (existing.exists) {
-    console.log(`Slug "${slug}" già esistente, salto questa esecuzione.`);
-    return null;
-  }
-
+// Scrive il testo di un articolo (titolo + HTML con i segnaposto [IMG_...]
+// ancora da sostituire) e lo sottopone al controllo di qualità: lancia un
+// errore se il risultato non è accettabile. Usata sia per i nuovi articoli sia
+// per la riscrittura di quelli vecchi (vedi scripts/rewrite-article.ts).
+export async function writeArticleContent({
+  destName,
+  vibeLabel,
+  insights,
+}: {
+  destName: string;
+  vibeLabel: string;
+  insights: Insights | null;
+}) {
+  const internalKey = `${destName}: ${vibeLabel}`;
   const layout = pickLayout();
 
-  const masterPrompt = `Agisci come il caporedattore di una rivista di viaggi seria, affiancato da uno specialista SEO. Scrivi una guida enciclopedica approfondita, utile e ben scritta sul viaggio "${internalKey}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}). Lunghezza: almeno 1400 parole di testo.
+  const masterPrompt = `Agisci come il caporedattore di una rivista di viaggi seria, affiancato da uno specialista SEO. Scrivi una guida enciclopedica approfondita, utile e ben scritta sul viaggio "${internalKey}" (Destinazione: ${destName}, target/tipo di viaggio: ${vibeLabel}). Lunghezza: almeno 1400 parole di testo.
 
 TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo editoriale originale per questo pezzo, come lo scriverebbe una vera redazione con decine di firme diverse, ognuna con un proprio stile. NON usare MAI il formato letterale "Destinazione: tema" (es. "Roma: trekking estremo") che è un template, non un titolo. Varia radicalmente la struttura da un articolo all'altro: a volte una domanda, a volte un'affermazione decisa, a volte una frase evocativa, a volte un gioco di parole, a volte un numero o una lista imperniata su un dettaglio sorprendente. Il titolo deve comunicare la destinazione e lo spirito del viaggio in modo implicito e originale, mai ripetendo pedissequamente le due etichette. Scrivilo racchiuso ESATTAMENTE così, come primissima riga di output, prima di ogni altra cosa: <title>Il tuo titolo qui</title>
 
@@ -364,7 +352,7 @@ Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
 Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine. Le indicazioni tra parentesi o in corsivo descrivono cosa scrivere e NON vanno riportate nel testo:
 
-${layout.skeleton(dest.name, vibe.label)}`;
+${layout.skeleton(destName, vibeLabel)}`;
 
   // Modello più capace per il testo principale, con ripiego automatico su
   // quello leggero se è senza quota, sovraccarico o troppo lento (la route
@@ -404,6 +392,42 @@ ${layout.skeleton(dest.name, vibe.label)}`;
     throw new Error(`Articolo scartato dal controllo di qualità (${layout.key}, ${aiModel}): ${qualityProblem}`);
   }
   content = `${content.trim()}\n${ARTICLE_FOOTER_HTML}`;
+  return { title, content, layout: layout.key, aiModel };
+}
+
+// ------------------------------------------------------------------
+// 5. MAIN
+// ------------------------------------------------------------------
+export async function generateArticle() {
+  // Dati di resa dei contenuti passati (null finché sono troppo pochi per
+  // fidarsene): orientano scelta di fascia/tema ed esempi nel prompt.
+  const insights = await getLearningInsights();
+  const dest = await pickNextDestination(insights);
+  const vibe = pickVibe(insights);
+  // internalKey: identificatore prevedibile (destinazione+tema) usato SOLO
+  // per slug/URL e anti-duplicati. Il titolo mostrato ai lettori \u00e8 invece
+  // scritto dall'AI (vedi masterPrompt sotto) per essere un vero titolo
+  // editoriale, vario da un articolo all'altro, non un template ripetitivo.
+  const internalKey = `${dest.name}: ${vibe.label}`;
+  const slug = internalKey
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  const existing = await getAdminDb().collection("articles").doc(slug).get();
+  if (existing.exists) {
+    console.log(`Slug "${slug}" già esistente, salto questa esecuzione.`);
+    return null;
+  }
+
+  const {
+    title,
+    content: writtenContent,
+    layout: layoutKey,
+    aiModel,
+  } = await writeArticleContent({ destName: dest.name, vibeLabel: vibe.label, insights });
+  let content = writtenContent;
 
   // Nonostante l'istruzione di usare SOLO i segnaposto [IMG_...], a volte il
   // modello inventa comunque un proprio tag <img>/<figure> con un src finto
@@ -450,7 +474,7 @@ ${layout.skeleton(dest.name, vibe.label)}`;
     slug,
     destination: dest.name,
     vibe: vibe.label,
-    layout: layout.key,
+    layout: layoutKey,
     aiModel,
     contentHtml: content,
     coverImageUrl: cover?.url ?? null,
