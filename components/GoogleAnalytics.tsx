@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
+import { useConsent } from "@/lib/consent";
 
 // ID di misurazione GA4 (non è un dato segreto: appare comunque in chiaro
 // nel codice sorgente di qualsiasi pagina che lo usa).
@@ -9,10 +10,14 @@ const GA_MEASUREMENT_ID = "G-79RD9HZ0Z9";
 
 export default function GoogleAnalytics() {
   const pathname = usePathname();
+  const consent = useConsent();
   // Le pagine /admin non vanno tracciate: le visite del proprietario
   // sporcherebbero le statistiche e il segreto presente nell'indirizzo
   // (?secret=...) verrebbe registrato nei report di Analytics.
   if (pathname?.startsWith("/admin")) return null;
+  // Nessun cookie né richiesta verso Google finché il visitatore non accetta
+  // dal banner (vedi components/CookieConsent.tsx).
+  if (consent !== "granted") return null;
 
   return (
     <>

@@ -198,10 +198,9 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         dangerouslySetInnerHTML={{ __html: article.displayContentHtml }}
       />
 
-      {/* Slot pubblicitario predisposto (Google AdSense) */}
-      <div className="my-8 flex min-h-[100px] items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-xs text-gray-400">
-        Spazio pubblicitario
-      </div>
+      {/* Nessun segnaposto pubblicitario finché AdSense non è approvato: un
+          riquadro "Spazio pubblicitario" vuoto fa sembrare il sito incompleto.
+          Quando ci sarà il codice reale va inserito qui. */}
 
       {article.coverImageCredit && (
         <p className="mb-8 text-xs text-gray-500">
