@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/site-info";
-import CookieSettingsButton from "./CookieSettingsButton";
 
 const LINKS = [
   { href: "/chi-siamo", label: "Chi siamo" },
-  { href: "/come-scriviamo-gli-articoli", label: "Come scriviamo gli articoli" },
   { href: "/contatti", label: "Contatti" },
   { href: "/privacy", label: "Privacy" },
-  { href: "/cookie", label: "Cookie" },
 ];
 
 // Footer comune a tutte le pagine: i link alle pagine di trasparenza devono
@@ -21,7 +18,6 @@ export default function SiteFooter() {
             {link.label}
           </Link>
         ))}
-        <CookieSettingsButton />
       </nav>
       <p>© {new Date().getFullYear()} {SITE_NAME}</p>
     </footer>

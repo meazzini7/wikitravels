@@ -6,6 +6,14 @@ interface AskGeminiOptions {
   // preziosa sul piano gratuito senza un vero beneficio. Il contenuto
   // principale dell'articolo, invece, deve poter riprovare.
   retryOn429?: boolean;
+  // Modello da usare al posto di quello standard (più leggero e veloce).
+  model?: string;
+  // 0 = niente "ragionamento" interno: risposta più veloce, utile quando
+  // c'è un limite di tempo stretto (le route cron durano al massimo 60s).
+  thinkingBudget?: number;
+  // Interrompe la chiamata dopo questo tempo (errore, così il chiamante può
+  // ripiegare su un altro modello).
+  timeoutMs?: number;
 }
 
 // Il limite gratuito di gemini-2.5-flash è per RPD (richieste AL GIORNO,
@@ -24,21 +32,24 @@ const MODEL = "gemini-2.5-flash-lite";
 // dell'endpoint cron.
 export async function askGemini(
   prompt: string,
-  { retryOn429 = true }: AskGeminiOptions = {},
+  options: AskGeminiOptions = {},
   isRetry = false
 ): Promise<string> {
+  const { retryOn429 = true, model = MODEL, thinkingBudget, timeoutMs } = options;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new Error("GEMINI_API_KEY non impostata");
   }
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
+        ...(thinkingBudget !== undefined ? { generationConfig: { thinkingConfig: { thinkingBudget } } } : {}),
         safetySettings: [
           { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
           { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -59,7 +70,7 @@ export async function askGemini(
       const match = message.match(/retry in ([\d.]+)s/i);
       const waitSeconds = match ? Math.min(45, parseFloat(match[1]) + 3) : isOverloaded ? 8 : 20;
       await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
-      return askGemini(prompt, { retryOn429 }, true);
+      return askGemini(prompt, options, true);
     }
     throw new Error(`Chiamata Gemini fallita: ${message}`);
   }

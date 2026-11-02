@@ -13,6 +13,7 @@
 import { getAdminDb } from "../lib/firebase-admin";
 import { INTEREST_KEYS } from "../lib/interests";
 import { askGemini } from "../lib/server/gemini";
+import { checkArticleQuality, pickLayout } from "../lib/article-layouts";
 import { fetchAndUploadImage } from "../lib/server/fetch-and-upload-image";
 import { sendNotificationEmailByUid } from "../lib/server/notification-email";
 import { postToFacebookPage, postToInstagram } from "../lib/server/social-post";
@@ -312,6 +313,15 @@ async function notifyDreamDestinationMatches(destinationName: string, article: {
   }
 }
 
+// Modello per il testo principale dell'articolo (quello che conta per la
+// qualità). Se non risponde entro il tempo indicato si ripiega sul modello
+// leggero di askGemini: il limite totale della route cron è 60s.
+const ARTICLE_MODEL = "gemini-2.5-flash";
+const ARTICLE_MODEL_TIMEOUT_MS = 30_000;
+
+// Aggiunto dal codice (non dall'AI) in fondo a ogni articolo, così c'è sempre.
+const ARTICLE_FOOTER_HTML = `<p><em>⚠️ Prezzi, orari e periodi sono indicativi e possono cambiare. Per documenti, requisiti d'ingresso e sicurezza del Paese consulta sempre il sito ufficiale <a href="https://www.viaggiaresicuri.it" target="_blank" rel="noopener noreferrer">Viaggiare Sicuri</a> del Ministero degli Esteri e le fonti ufficiali dei luoghi da visitare. Se trovi un errore in questa guida, scrivici dalla pagina Contatti.</em></p>`;
+
 // ------------------------------------------------------------------
 // 5. MAIN
 // ------------------------------------------------------------------
@@ -338,69 +348,41 @@ export async function generateArticle() {
     return null;
   }
 
-  const masterPrompt = `Agisci come il caporedattore di una rivista di viaggi prestigiosa (pensa al registro di National Geographic Traveller o Condé Nast Traveller), affiancato da uno specialista SEO. Scrivi un articolo enciclopedico ricco, approfondito e coinvolgente sul viaggio "${internalKey}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}).
+  const layout = pickLayout();
 
-TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo editoriale originale per questo pezzo, come lo scriverebbe una vera redazione con decine di firme diverse, ognuna con un proprio stile. NON usare MAI il formato letterale "Destinazione: tema" (es. "Roma: trekking estremo") che è un template, non un titolo. Varia radicalmente la struttura da un articolo all'altro: a volte una domanda, a volte un'affermazione decisa, a volte una frase evocativa o narrativa, a volte un gioco di parole, a volte un numero o una lista imperniata su un dettaglio sorprendente. Il titolo deve comunicare la destinazione e lo spirito del viaggio in modo implicito e originale, mai ripetendo pedissequamente le due etichette. Scrivilo racchiuso ESATTAMENTE così, come primissima riga di output, prima di ogni altra cosa: <title>Il tuo titolo qui</title>
+  const masterPrompt = `Agisci come il caporedattore di una rivista di viaggi seria, affiancato da uno specialista SEO. Scrivi una guida enciclopedica approfondita, utile e ben scritta sul viaggio "${internalKey}" (Destinazione: ${dest.name}, target/tipo di viaggio: ${vibe.label}). Lunghezza: almeno 1400 parole di testo.
 
-STILE E LESSICO (fondamentale): non scrivere come un generico articolo da blog di viaggi, e soprattutto non scrivere come si riconosce di solito un testo generato da un'intelligenza artificiale. Usa un lessico ricco, preciso ed evocativo, varia radicalmente la costruzione delle frasi (alterna frasi brevi e incisive a frasi più ampie e descrittive, non ripetere mai la stessa struttura sintattica per più di due paragrafi di fila), e costruisci immagini sensoriali concrete: colori, suoni, profumi, sapori, luce, atmosfera, non solo elenchi di attrazioni. Racconta ogni luogo o esperienza come se il lettore potesse già respirarne l'aria, come se l'autore ci fosse davvero stato. Evita frasi fatte e aggettivi generici da opuscolo turistico ("bellissimo", "imperdibile", "meraviglioso" usati a vuoto, liste di aggettivi in fila): sostituiscili con dettagli specifici, concreti e plausibili — un nome di quartiere reale, un orario indicativo, un prezzo, un piccolo particolare insolito — che dimostrino conoscenza reale del posto, come farebbe un giornalista che ha davvero fatto ricerca. Attingi quando pertinente a storia, cultura, tradizioni locali, aneddoti poco noti o curiosità sorprendenti: servono ad ampliare la ricercatezza dei contenuti, non solo a descrivere cosa vedere. Evita i tic tipici dei testi da AI: non aprire con "Immagina di...", non chiudere paragrafi o sezioni con frasi motivazionali generiche da opuscolo, non usare più di una volta nell'intero pezzo formule bilanciate tipo "sia che tu stia cercando X, sia che tu preferisca Y".
+TITOLO (fondamentale, leggi con attenzione): prima di tutto inventa un titolo editoriale originale per questo pezzo, come lo scriverebbe una vera redazione con decine di firme diverse, ognuna con un proprio stile. NON usare MAI il formato letterale "Destinazione: tema" (es. "Roma: trekking estremo") che è un template, non un titolo. Varia radicalmente la struttura da un articolo all'altro: a volte una domanda, a volte un'affermazione decisa, a volte una frase evocativa, a volte un gioco di parole, a volte un numero o una lista imperniata su un dettaglio sorprendente. Il titolo deve comunicare la destinazione e lo spirito del viaggio in modo implicito e originale, mai ripetendo pedissequamente le due etichette. Scrivilo racchiuso ESATTAMENTE così, come primissima riga di output, prima di ogni altra cosa: <title>Il tuo titolo qui</title>
 
-PUBBLICO: il pezzo deve parlare a lettori molto diversi tra loro nello stesso articolo, intrecciando naturalmente spunti per ciascuno senza dedicare sezioni separate: chi viaggia in coppia, chi in famiglia con bambini, chi da solo/a, chi cerca lusso e comfort, chi viaggia con budget ridotto, chi cerca adrenalina e chi cerca solo relax o ispirazione culturale. Ogni tipo di viaggiatore deve trovare almeno un dettaglio pensato per lui.${buildLearningBlock(insights)}
+VERIDICITÀ E VOCE (fondamentale, più importante dello stile): scrivi come una redazione che ha fatto ricerca su fonti, NON come qualcuno che è stato sul posto. Mai la prima persona singolare, mai "ci sono stato", "ho provato", "durante il mio viaggio", aneddoti personali o testimonianze inventate: usa la seconda persona ("potrai", "ti conviene") o un tono impersonale. Cita SOLO luoghi, quartieri, piatti, eventi e festival realmente esistenti e noti. Se non sei sicuro di un nome, di un orario, di un prezzo o di un requisito, NON inventarlo: resta generale o dai un intervallo con "circa". Non inventare mai nomi di ristoranti, hotel, guide, compagnie o locali. Preferisci fatti verificabili (storia, geografia, clima, cucina tradizionale, periodi dei festival) a descrizioni vaghe.
+
+STILE: lessico ricco e preciso, frasi di lunghezza varia (alterna brevi e incisive a più ampie, non ripetere la stessa struttura per più di due paragrafi di fila), immagini concrete (luce, suoni, profumi, sapori) ma sempre ancorate a fatti. Evita frasi fatte e aggettivi vuoti ("bellissimo", "imperdibile", "meraviglioso"), sostituendoli con dettagli specifici e verificabili. Evita i tic da testo generato: non aprire con "Immagina di...", non chiudere le sezioni con frasi motivazionali generiche, non usare più di una volta formule tipo "sia che tu stia cercando X, sia che tu preferisca Y".
+
+PUBBLICO: il pezzo deve parlare a lettori diversi (coppie, famiglie con bambini, chi viaggia da solo, chi cerca lusso, chi ha un budget ridotto, chi cerca adrenalina o relax) intrecciando naturalmente gli spunti senza sezioni separate. Chi legge parte dall'Italia: tienilo presente nei consigli pratici.${buildLearningBlock(insights)}
 
 Scrivi in italiano, paragrafi scorrevoli ma sostanziosi, senza ripetizioni.
 
-Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine, senza aggiungere o togliere sezioni:
+Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco \`\`\`), seguendo ESATTAMENTE questa struttura, in questo ordine. Le indicazioni tra parentesi o in corsivo descrivono cosa scrivere e NON vanno riportate nel testo:
 
-<h2>Perché scegliere ${dest.name} per un ${vibe.label}</h2>
-<p>Paragrafo introduttivo denso e coinvolgente (10-14 righe): apri con una scena concreta e sensoriale (un momento, un luogo, un dettaglio che catturi l'atmosfera), poi intreccia cenni storici o culturali rilevanti, cosa rende unica la destinazione per questo tipo di viaggio, e perché diversi tipi di viaggiatori vi troverebbero qualcosa di prezioso.</p>
+${layout.skeleton(dest.name, vibe.label)}`;
 
-[IMG_LANDMARK: 3-5 parole inglesi del monumento o paesaggio più iconico]
-
-<h2>Quando andare</h2>
-<p>Periodo migliore mese per mese o per stagione, clima e cosa aspettarsi (temperature, affluenza turistica, prezzi), eventi, festival o ricorrenze locali da non perdere, con almeno un consiglio su quando evitare la folla.</p>
-
-<h2>Cosa vedere: le tappe imperdibili</h2>
-<ul>
-<li><b>Nome del luogo:</b> descrizione vivida in 2-4 righe, con un dettaglio storico, architettonico o culturale che vada oltre l'ovvio.</li>
-(esattamente 6 voci in totale, ognuna con nome in grassetto e descrizione ricca, variando i tipi di luogo: monumenti, natura, quartieri, panorami, luoghi meno noti)
-</ul>
-
-[IMG_ACTIVITY: 3-5 parole inglesi dell'attività o luogo più caratteristico]
-
-<h2>Cosa fare: esperienze da vivere</h2>
-<ul>
-<li><b>Nome esperienza:</b> descrizione vivida in 2-3 righe.</li>
-(esattamente 5 voci in totale, pensate per profili di viaggiatore diversi: un'esperienza adrenalinica, una romantica, una adatta alle famiglie, una culturale/immersiva, una all'insegna del relax)
-</ul>
-
-<h2>Dove mangiare: la cucina locale</h2>
-<p>Introduzione golosa e culturalmente informata alla cucina locale, incluse le sue radici e influenze (3-5 righe).</p>
-<ul>
-<li><b>Piatto o specialità:</b> descrizione golosa e sensoriale in 2-3 righe (ingredienti, provenienza, quando/come si mangia tradizionalmente).</li>
-(esattamente 4 voci in totale; resta generico su locali/ristoranti specifici, es. "un mercato locale", non inventare nomi propri)
-</ul>
-
-[IMG_FOOD: 3-5 parole inglesi di un piatto tipico o mercato locale]
-
-<h2>Dove dormire e come muoversi</h2>
-<p>Zone/quartieri consigliati per dormire in base al tipo di viaggio (dal budget al lusso), atmosfera di ciascuna zona, e come muoversi in loco (mezzi pubblici, noleggio, a piedi, app utili, insidie da evitare).</p>
-
-<h2>Budget indicativo</h2>
-<table><tr><th>Voce di spesa</th><th>Budget stimato (a persona)</th></tr>
-<tr><td>Volo</td><td>...</td></tr>
-<tr><td>Alloggio (a notte)</td><td>...</td></tr>
-<tr><td>Pasti (al giorno)</td><td>...</td></tr>
-<tr><td>Attività/ingressi</td><td>...</td></tr>
-<tr><td><b>Totale indicativo (una settimana)</b></td><td><b>...</b></td></tr>
-</table>
-
-<div class="secret-spot">💡 <b>IL SEGRETO DEL LOCAL:</b> un consiglio pratico e poco conosciuto, specifico e utile (3-4 righe), quello che solo chi conosce bene il posto potrebbe dare, idealmente qualcosa che non si trova nelle guide standard.</div>
-
-<h2>Un'ultima cosa prima di partire</h2>
-<p>Paragrafo di chiusura ispirazionale (5-7 righe), con un tono quasi narrativo, che invita il lettore a immaginarsi già lì e a organizzare questo viaggio.</p>
-
-<p><em>⚠️ Le informazioni su prezzi, orari e periodi indicati sono indicative e possono cambiare: verifica sempre le fonti ufficiali prima di partire.</em></p>`;
-
-  const rawContent = await askGemini(masterPrompt);
+  // Modello più capace per il testo principale, con ripiego automatico su
+  // quello leggero se è senza quota, sovraccarico o troppo lento (la route
+  // cron ha un limite di 60s totali).
+  let aiModel = ARTICLE_MODEL;
+  let rawContent: string;
+  try {
+    rawContent = await askGemini(masterPrompt, {
+      retryOn429: false,
+      model: ARTICLE_MODEL,
+      thinkingBudget: 0,
+      timeoutMs: ARTICLE_MODEL_TIMEOUT_MS,
+    });
+  } catch (err) {
+    console.warn(`Modello ${ARTICLE_MODEL} non disponibile, ripiego sul modello leggero:`, err);
+    aiModel = "lite";
+    rawContent = await askGemini(masterPrompt);
+  }
   let content = stripCodeFence(rawContent);
   if (content.length < 2000) {
     throw new Error(
@@ -414,6 +396,14 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
   const titleMatch = content.match(/<title>([\s\S]*?)<\/title>/i);
   const title = titleMatch?.[1]?.trim() || internalKey;
   content = content.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
+
+  // Controllo di qualità: meglio nessun articolo oggi che uno corto, incompleto
+  // o che finge di essere stato sul posto (il cron riprova alla prossima corsa).
+  const qualityProblem = checkArticleQuality(content);
+  if (qualityProblem) {
+    throw new Error(`Articolo scartato dal controllo di qualità (${layout.key}, ${aiModel}): ${qualityProblem}`);
+  }
+  content = `${content.trim()}\n${ARTICLE_FOOTER_HTML}`;
 
   // Nonostante l'istruzione di usare SOLO i segnaposto [IMG_...], a volte il
   // modello inventa comunque un proprio tag <img>/<figure> con un src finto
@@ -460,6 +450,8 @@ Dopo il tag <title>, restituisci SOLO HTML puro (nessun markdown, nessun blocco 
     slug,
     destination: dest.name,
     vibe: vibe.label,
+    layout: layout.key,
+    aiModel,
     contentHtml: content,
     coverImageUrl: cover?.url ?? null,
     coverImageCredit: cover ? { author: cover.author, link: cover.link } : null,

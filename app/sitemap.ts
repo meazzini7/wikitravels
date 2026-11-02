@@ -28,10 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/enciclopedia`, changeFrequency: "daily", priority: 0.9 },
     { url: `${siteUrl}/info`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${siteUrl}/chi-siamo`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${siteUrl}/come-scriviamo-gli-articoli`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${siteUrl}/contatti`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${siteUrl}/cookie`, changeFrequency: "yearly", priority: 0.2 },
   ];
 
   try {

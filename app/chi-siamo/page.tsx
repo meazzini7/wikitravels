@@ -42,9 +42,8 @@ export default function ChiSiamoPage() {
       <h2>Come nascono le guide</h2>
       <p>
         Le guide dell&apos;Enciclopedia sono prodotte con l&apos;aiuto dell&apos;intelligenza artificiale e non sono il
-        racconto di un viaggio vissuto in prima persona. Lo spieghiamo con trasparenza nella pagina{" "}
-        <Link href="/come-scriviamo-gli-articoli">Come scriviamo gli articoli</Link>, insieme ai limiti da tenere a
-        mente e a come segnalarci un errore.
+        racconto di un viaggio vissuto in prima persona. Prezzi, orari e periodi sono indicativi: controlla sempre le
+        fonti ufficiali prima di partire. Se trovi un errore scrivici e lo correggiamo.
       </p>
 
       <h2>Scrivici</h2>
