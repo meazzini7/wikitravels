@@ -58,6 +58,13 @@ export default async function AdminDashboardPage({
           ↻ Aggiorna
         </Link>
       </div>
+      <Link
+        href={`/admin/riscrivi?secret=${encodeURIComponent(secret)}`}
+        className="tap-scale mb-4 flex min-h-[44px] items-center justify-between rounded-2xl border border-brand-100 bg-white px-4 text-sm font-bold text-gray-800"
+      >
+        <span>✍️ Rinnova gli articoli vecchi</span>
+        <span className="text-brand-600">Apri →</span>
+      </Link>
 
       <HealthSection health={health} gaOk={gaOk} secret={secret} />
       {result.error && <SetupGuide error={result.error} />}
