@@ -8,6 +8,7 @@ import { getDictionary } from "@/lib/i18n/dictionary";
 import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import SiteFooter from "@/components/SiteFooter";
 import OnboardingGuard from "@/components/OnboardingGuard";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -105,7 +106,10 @@ export default function RootLayout({
           <AuthProvider>
             <OnboardingGuard />
             <Navbar />
-            <div className="pb-20 sm:pb-0">{children}</div>
+            <div className="pb-20 sm:pb-0">
+              {children}
+              <SiteFooter />
+            </div>
             <BottomNav />
           </AuthProvider>
         </I18nProvider>

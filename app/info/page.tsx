@@ -57,7 +57,7 @@ const FAQS: FaqItem[] = [
   {
     question: "Cos'è l'Enciclopedia?",
     answer:
-      "Una raccolta di guide di destinazione scritte dall'intelligenza artificiale e aggiornata ogni giorno con un nuovo articolo: cosa vedere, cosa fare, dove mangiare, budget indicativo e un consiglio da local per ogni meta.",
+      "Una raccolta di guide di destinazione scritte dall'intelligenza artificiale e che cresce con nuovi articoli: cosa vedere, cosa fare, cucina locale, budget indicativo, informazioni pratiche per chi parte dall'Italia e risposte alle domande più comuni.",
   },
   {
     question: "In che lingua vedo il portale e gli articoli?",

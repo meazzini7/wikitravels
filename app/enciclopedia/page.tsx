@@ -14,7 +14,7 @@ export const revalidate = 21600;
 export const metadata: Metadata = {
   title: "Enciclopedia dei viaggi",
   description:
-    "Guide di viaggio su destinazioni di tutto il mondo: cosa vedere, dove mangiare e i segreti dei local, aggiornate ogni giorno.",
+    "Guide di viaggio su destinazioni di tutto il mondo: cosa vedere, quando andare, budget indicativo e informazioni pratiche per chi parte dall'Italia.",
   alternates: { canonical: "/enciclopedia" },
 };
 
