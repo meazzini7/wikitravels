@@ -72,6 +72,13 @@ const en: Dictionary = {
     photoBy: "Photo by",
     onUnsplash: "on Unsplash",
     translatingNotice: "This article was translated automatically.",
+    tocTitle: "In this guide",
+    byline: "By the WikiTravels editorial team",
+    published: "Published",
+    updated: "Updated",
+    howWeWrite: "How our guides are made",
+    latestGuidesTitle: "📖 Latest guides",
+    allGuides: "All guides →",
   },
 };
 

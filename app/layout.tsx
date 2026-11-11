@@ -11,6 +11,7 @@ import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SiteFooter from "@/components/SiteFooter";
 import OnboardingGuard from "@/components/OnboardingGuard";
 import { getSiteUrl } from "@/lib/site-url";
+import { ADSENSE_CLIENT } from "@/lib/site-info";
 
 const heading = Baloo_2({
   subsets: ["latin"],
@@ -99,6 +100,17 @@ export default function RootLayout({
         <link rel="preconnect" href="https://firestore.googleapis.com" />
         <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
+        {/* Google AdSense: verifica della proprietà del sito e, dopo
+            l'approvazione, pubblicazione degli annunci. Deve stare nell'<head>
+            di ogni pagina così com'è (Google lo cerca nel codice della
+            pagina). Sulle pagine /admin il browser non lo carica: vedi
+            l'intestazione di sicurezza in next.config.mjs. */}
+        <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          crossOrigin="anonymous"
+        />
       </head>
       <body>
         <GoogleAnalytics />

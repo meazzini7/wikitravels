@@ -73,5 +73,12 @@ export interface Dictionary {
     photoBy: string;
     onUnsplash: string;
     translatingNotice: string;
+    tocTitle: string;
+    byline: string;
+    published: string;
+    updated: string;
+    howWeWrite: string;
+    latestGuidesTitle: string;
+    allGuides: string;
   };
 }

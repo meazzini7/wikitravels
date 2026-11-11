@@ -19,7 +19,9 @@ const WorldMap = dynamic(() => import("@/components/WorldMap"), {
   loading: () => <div className="h-72 w-full animate-pulse rounded-2xl bg-gray-100" />,
 });
 
-export default function HomePageContent() {
+// `guides`: sezione "ultime guide" renderizzata lato server (vedi
+// components/LatestGuides.tsx) e inserita qui dalla pagina.
+export default function HomePageContent({ guides }: { guides?: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   const t = useTranslations("home");
 
@@ -131,6 +133,8 @@ export default function HomePageContent() {
           </Link>
         ))}
       </section>
+
+      {guides}
 
       <section className="mb-8">
         <div className="card-surface p-4 sm:p-6">

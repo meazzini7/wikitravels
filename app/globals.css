@@ -58,3 +58,9 @@
 .secret-spot {
   @apply mt-6 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900;
 }
+
+/* I titoli di sezione degli articoli sono bersaglio dei link dell'indice: il
+   margine evita che finiscano nascosti sotto la barra in alto. */
+.article-body h2 {
+  scroll-margin-top: 5rem;
+}

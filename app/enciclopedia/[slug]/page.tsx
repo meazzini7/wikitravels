@@ -1,54 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import Image from "next/image";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { getLocalizedArticle } from "@/lib/server/get-localized-article";
+import { getArticleCards } from "@/lib/server/article-list";
+import { enhanceArticleHtml, jsonLdString, pickRelated } from "@/lib/article-html";
 import { getSiteUrl } from "@/lib/site-url";
 import { getServerLocale } from "@/lib/i18n/server-locale";
 import { getDictionary } from "@/lib/i18n/dictionary";
 import ShareButtons from "@/components/ShareButtons";
 import FlamingoMascot from "@/components/FlamingoMascot";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
-import type { Article } from "@/lib/types";
-
-type RelatedArticle = Pick<Article, "slug" | "title" | "destination" | "coverImageUrl">;
-
-// Solo i 4 campi mostrati nelle card (prima si leggevano 7 documenti interi,
-// contentHtml compreso, ad ogni visita) e risultato condiviso in Data Cache.
-const getLatestArticles = unstable_cache(
-  async (): Promise<RelatedArticle[]> => {
-    try {
-      const snap = await getAdminDb()
-        .collection("articles")
-        .where("status", "==", "published")
-        .orderBy("createdAt", "desc")
-        .select("slug", "title", "destination", "coverImageUrl")
-        .limit(7)
-        .get();
-      return snap.docs.map((d) => {
-        const a = d.data();
-        return {
-          slug: a.slug,
-          title: a.title,
-          destination: a.destination,
-          coverImageUrl: a.coverImageUrl ?? null,
-        };
-      });
-    } catch (err) {
-      console.error("Impossibile caricare gli articoli correlati:", err);
-      return [];
-    }
-  },
-  ["latest-articles-v1"],
-  { revalidate: 21600, tags: ["articles"] }
-);
-
-async function getRelatedArticles(currentSlug: string): Promise<RelatedArticle[]> {
-  const latest = await getLatestArticles();
-  return latest.filter((a) => a.slug !== currentSlug).slice(0, 3);
-}
 
 export async function generateStaticParams() {
   try {
@@ -107,14 +70,27 @@ function toIsoDate(value: unknown): string | undefined {
   return undefined;
 }
 
+function formatDate(iso: string | undefined, locale: string): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Rome" }).format(date);
+}
+
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const locale = getServerLocale();
   const dict = getDictionary(locale).enciclopedia;
   const article = await getLocalizedArticle(params.slug, locale);
   if (!article) notFound();
 
-  const relatedArticles = await getRelatedArticles(article.slug);
+  const relatedArticles = pickRelated(await getArticleCards(), article);
   const publishedDate = toIsoDate(article.createdAt);
+  // Gli articoli rinnovati (vedi scripts/rewrite-article.ts) hanno una data
+  // di aggiornamento distinta da quella di prima pubblicazione.
+  const updatedDate = toIsoDate(article.rewrittenAt) ?? publishedDate;
+  const publishedLabel = formatDate(publishedDate, locale);
+  const updatedLabel = formatDate(updatedDate, locale);
+  const { html: contentHtml, toc, faq } = enhanceArticleHtml(article.displayContentHtml);
   const siteUrl = getSiteUrl();
   const articleUrl = `${siteUrl}/enciclopedia/${article.slug}`;
 
@@ -125,7 +101,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     description: article.displayMetaDescription,
     image: article.coverImageUrl ? [article.coverImageUrl] : undefined,
     datePublished: publishedDate,
-    dateModified: publishedDate,
+    dateModified: updatedDate,
     inLanguage: locale,
     author: { "@type": "Organization", name: "WikiTravels" },
     publisher: { "@type": "Organization", name: "WikiTravels" },
@@ -142,18 +118,30 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     ],
   };
 
+  // Le domande frequenti presenti nel testo, descritte anche a Google.
+  const faqJsonLd =
+    faq.length >= 2
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faq.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: { "@type": "Answer", text: item.answer },
+          })),
+        }
+      : null;
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
       {/* eslint-disable-next-line react/no-danger */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       {/* eslint-disable-next-line react/no-danger */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
+      {faqJsonLd && (
+        // eslint-disable-next-line react/no-danger
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />
+      )}
       {article.coverImageUrl && (
         <div className="relative mb-6 h-64 w-full overflow-hidden rounded-3xl shadow-soft sm:h-80">
           <Image
@@ -170,7 +158,27 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </span>
         </div>
       )}
-      <h1 className="mb-3 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.displayTitle}</h1>
+      <h1 className="mb-2 font-heading text-2xl font-extrabold text-gray-900 sm:text-3xl">{article.displayTitle}</h1>
+
+      <p className="mb-3 text-xs text-gray-500">
+        {dict.byline}
+        {publishedLabel && (
+          <>
+            {" · "}
+            {dict.published} <time dateTime={publishedDate}>{publishedLabel}</time>
+          </>
+        )}
+        {updatedLabel && updatedLabel !== publishedLabel && (
+          <>
+            {" · "}
+            {dict.updated} <time dateTime={updatedDate}>{updatedLabel}</time>
+          </>
+        )}
+        {" · "}
+        <Link href="/chi-siamo" className="font-semibold text-brand-600 underline">
+          {dict.howWeWrite}
+        </Link>
+      </p>
 
       <ul className="mb-4 flex flex-wrap gap-1.5">
         {topInterests(article.scores, 3).map((key) => (
@@ -192,15 +200,30 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         <ShareButtons url={articleUrl} title={article.displayTitle} />
       </div>
 
+      {toc.length >= 4 && (
+        <nav aria-label={dict.tocTitle} className="card-surface mb-6 p-4 sm:p-5">
+          <p className="mb-2 font-heading text-sm font-bold text-gray-900">{dict.tocTitle}</p>
+          <ol className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+            {toc.map((item) => (
+              <li key={item.id}>
+                <a href={`#${item.id}`} className="text-brand-700 hover:underline">
+                  {item.text}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
+
       {/* eslint-disable-next-line react/no-danger */}
       <div
-        className="card-surface prose prose-brand max-w-none p-5 sm:p-8"
-        dangerouslySetInnerHTML={{ __html: article.displayContentHtml }}
+        className="article-body card-surface prose prose-brand max-w-none p-5 sm:p-8"
+        dangerouslySetInnerHTML={{ __html: contentHtml }}
       />
 
-      {/* Nessun segnaposto pubblicitario finché AdSense non è approvato: un
-          riquadro "Spazio pubblicitario" vuoto fa sembrare il sito incompleto.
-          Quando ci sarà il codice reale va inserito qui. */}
+      {/* Nessun riquadro pubblicitario fisso: dopo l'approvazione gli annunci
+          li posiziona AdSense ("annunci automatici") grazie al codice
+          nell'<head> (vedi app/layout.tsx). */}
 
       {article.coverImageCredit && (
         <p className="mb-8 text-xs text-gray-500">

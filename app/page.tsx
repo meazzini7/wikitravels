@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import HomePageContent from "@/components/HomePageContent";
+import LatestGuides from "@/components/LatestGuides";
 import { getSiteUrl } from "@/lib/site-url";
 
 const siteUrl = getSiteUrl();
+
+// La home mostra le ultime guide: si rigenera da sola ogni 6 ore e subito
+// quando esce o viene rinnovato un articolo (revalidatePath("/") nei cron).
+export const revalidate = 21600;
 
 export const metadata: Metadata = {
   title: "WikiTravels — organizza viaggi, segui altri esploratori, scopri il mondo",
@@ -30,7 +35,7 @@ export default function HomePage() {
     <>
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <HomePageContent />
+      <HomePageContent guides={<LatestGuides />} />
     </>
   );
 }

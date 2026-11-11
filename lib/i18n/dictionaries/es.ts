@@ -72,6 +72,13 @@ const es: Dictionary = {
     photoBy: "Foto de",
     onUnsplash: "en Unsplash",
     translatingNotice: "Este artículo se ha traducido automáticamente.",
+    tocTitle: "En esta guía",
+    byline: "Por la redacción de WikiTravels",
+    published: "Publicado el",
+    updated: "Actualizado el",
+    howWeWrite: "Cómo nacen las guías",
+    latestGuidesTitle: "📖 Últimas guías",
+    allGuides: "Todas las guías →",
   },
 };
 
