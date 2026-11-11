@@ -46,9 +46,13 @@ const getCachedArticleDoc = unstable_cache(
     const data = snap.data() as Article;
     // I Timestamp non sopravvivono alla serializzazione della cache: li
     // convertiamo in stringa ISO (la pagina la gestisce).
-    return { ...data, createdAt: tsToIso(data.createdAt) ?? data.createdAt };
+    return {
+      ...data,
+      createdAt: tsToIso(data.createdAt) ?? data.createdAt,
+      rewrittenAt: tsToIso(data.rewrittenAt) ?? null,
+    };
   },
-  ["article-doc-v1"],
+  ["article-doc-v2"],
   { revalidate: 43200, tags: ["articles"] }
 );
 

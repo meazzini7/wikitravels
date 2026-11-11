@@ -165,6 +165,10 @@ export interface Article {
   status: "published" | "draft";
   views: number;
   createdAt: unknown;
+  // Presenti sugli articoli scritti o rinnovati con il generatore attuale.
+  rewrittenAt?: unknown;
+  layout?: string;
+  aiModel?: string;
   // Traduzioni generate al volo (on-demand) la prima volta che qualcuno
   // apre l'articolo in quella lingua, e da quel momento riusate da
   // Firestore invece di richiamare Gemini a ogni visita. Chiave = codice

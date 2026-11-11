@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     if (result.ok && result.slug) {
       revalidatePath(`/enciclopedia/${result.slug}`);
       revalidatePath("/enciclopedia");
+      revalidatePath("/");
       revalidatePath("/sitemap.xml");
       revalidateTag("articles");
     }

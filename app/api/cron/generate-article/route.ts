@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
       // Senza questo, la pagina /enciclopedia (ISR, revalidate 1h) resta con
       // la versione in cache fino alla prossima rigenerazione automatica.
       revalidatePath("/enciclopedia");
+      revalidatePath("/");
       revalidatePath(`/enciclopedia/${result.slug}`);
       revalidatePath("/sitemap.xml");
       revalidateTag("articles");
