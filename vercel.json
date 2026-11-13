@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/generate-article",
-      "schedule": "30 6 1-31/2 * *"
-    },
-    {
-      "path": "/api/cron/daily-report",
-      "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/cron/generate-promo-post",
-      "schedule": "0 13 2-30/2 * *"
-    }
-  ]
-}
+{}

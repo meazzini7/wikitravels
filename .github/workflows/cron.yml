@@ -1,0 +1,75 @@
+name: Cron WikiTravels
+
+# Sostituisce i Vercel Cron (stessi orari, UTC) per non consumare CPU su Vercel.
+on:
+  schedule:
+    - cron: "30 6 1-31/2 * *" # article: giorni dispari
+    - cron: "0 17 * * *" # report: ogni giorno
+    - cron: "0 13 2-30/2 * *" # promo: giorni pari
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job da eseguire"
+        type: choice
+        options:
+          - article
+          - promo
+          - report
+
+concurrency:
+  group: wikitravels-cron
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Scegli il job
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            JOB="$INPUT_JOB"
+          else
+            case "$SCHEDULE" in
+              "30 6 1-31/2 * *") JOB=article ;;
+              "0 17 * * *") JOB=report ;;
+              "0 13 2-30/2 * *") JOB=promo ;;
+              *) echo "Schedule non riconosciuto: $SCHEDULE"; exit 1 ;;
+            esac
+          fi
+          echo "job=$JOB" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Esegui job
+        env:
+          JOB: ${{ steps.pick.outputs.job }}
+          FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          ADMIN_REPORT_EMAIL: ${{ secrets.ADMIN_REPORT_EMAIL }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+        run: npx tsx --conditions=react-server scripts/run-cron.ts "$JOB"
