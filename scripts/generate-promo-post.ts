@@ -4,8 +4,9 @@
  * spiegare via via, con un tono da amico e non da ufficio marketing, le
  * varie funzionalità del portale per invogliare le persone a iscriversi.
  *
- * Uso: eseguito da app/api/cron/generate-promo-post/route.ts (Vercel Cron),
- * oppure manualmente con `npm run generate:promo-post`.
+ * Uso: eseguito da GitHub Actions (.github/workflows/cron.yml, tramite
+ * scripts/run-cron.ts), oppure manualmente con `npm run generate:promo-post`.
+ * La route app/api/cron/generate-promo-post resta solo per un avvio manuale.
  */
 
 import { getAdminDb } from "../lib/firebase-admin";

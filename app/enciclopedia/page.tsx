@@ -9,7 +9,9 @@ import RecommendedArticles from "@/components/RecommendedArticles";
 import { INTEREST_ICONS, INTEREST_LABELS, topInterests } from "@/lib/interests";
 import type { Article } from "@/lib/types";
 
-export const revalidate = 21600;
+// Un nuovo articolo compare qui entro un'ora: i cron girano su GitHub Actions
+// e non possono invalidare la cache di Vercel.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Enciclopedia dei viaggi",

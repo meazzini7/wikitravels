@@ -5,9 +5,10 @@ import { getSiteUrl } from "@/lib/site-url";
 
 const siteUrl = getSiteUrl();
 
-// La home mostra le ultime guide: si rigenera da sola ogni 6 ore e subito
-// quando esce o viene rinnovato un articolo (revalidatePath("/") nei cron).
-export const revalidate = 21600;
+// La home mostra le ultime guide. I cron girano su GitHub Actions e non
+// possono invalidare la cache di Vercel: la pagina si rigenera da sola, al
+// massimo ogni ora (e subito dopo un "Rinnova articoli" dal pannello).
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "WikiTravels — organizza viaggi, segui altri esploratori, scopri il mondo",

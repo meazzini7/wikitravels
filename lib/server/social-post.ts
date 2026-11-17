@@ -16,7 +16,7 @@ export async function postToFacebookPage({ message, link }: { message: string; l
   const pageId = process.env.FACEBOOK_PAGE_ID;
   const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
   if (!pageId || !token) {
-    const error = "FACEBOOK_PAGE_ID o FACEBOOK_PAGE_ACCESS_TOKEN non configurate su Vercel.";
+    const error = "FACEBOOK_PAGE_ID o FACEBOOK_PAGE_ACCESS_TOKEN non configurate (variabili su Vercel / secrets su GitHub).";
     console.error(error);
     return { ok: false, error };
   }

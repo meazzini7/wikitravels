@@ -5,8 +5,9 @@ import type { ArticleCard } from "../article-html";
 
 // Elenco leggero di tutti gli articoli pubblicati (solo i campi delle card,
 // mai il testo), dal più recente. Condiviso in Data Cache tra home e pagine
-// articolo e invalidato alla pubblicazione/riscrittura (tag "articles"), così
-// non si rilegge Firestore a ogni visita.
+// articolo, così non si rilegge Firestore a ogni visita. Dura un'ora, come la
+// rigenerazione di home ed enciclopedia (i cron su GitHub Actions non possono
+// invalidarla); la riscrittura dal pannello la invalida subito (tag "articles").
 export const getArticleCards = unstable_cache(
   async (): Promise<ArticleCard[]> => {
     try {
@@ -33,6 +34,6 @@ export const getArticleCards = unstable_cache(
       return [];
     }
   },
-  ["article-cards-v1"],
-  { revalidate: 21600, tags: ["articles"] }
+  ["article-cards-v2"],
+  { revalidate: 3600, tags: ["articles"] }
 );
