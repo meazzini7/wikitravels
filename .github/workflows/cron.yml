@@ -1,6 +1,14 @@
 name: Cron WikiTravels
 
 # Sostituisce i Vercel Cron (stessi orari, UTC) per non consumare CPU su Vercel.
+# Il repository è pubblico: i segreti stanno SOLO in Settings -> Secrets and
+# variables -> Actions, mai nel codice; i log stampano solo l'esito dei job
+# (vedi scripts/run-cron.ts).
+#
+# Nota GitHub: nei repository pubblici i workflow programmati vengono
+# disattivati dopo 60 giorni senza alcuna attività nel repository; se succede
+# basta riattivarli dalla scheda Actions. L'avvio può ritardare di qualche
+# minuto rispetto all'orario indicato.
 on:
   schedule:
     - cron: "30 6 1-31/2 * *" # article: giorni dispari
@@ -15,6 +23,10 @@ on:
           - article
           - promo
           - report
+
+# Il job non scrive nulla sul repository: il token automatico resta in sola lettura.
+permissions:
+  contents: read
 
 concurrency:
   group: wikitravels-cron
@@ -45,18 +57,25 @@ jobs:
           echo "job=$JOB" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
 
       - name: Esegui job
         env:
           JOB: ${{ steps.pick.outputs.job }}
+          # Firebase Admin: basta UNA delle tre varianti, la stessa che usi su
+          # Vercel (vedi lib/firebase-admin.ts). Quelle non impostate restano vuote.
           FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_BASE64 }}
+          FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+          FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
@@ -67,8 +86,11 @@ jobs:
           ADMIN_REPORT_EMAIL: ${{ secrets.ADMIN_REPORT_EMAIL }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
-          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          # Instagram: il collegamento (e il suo rinnovo automatico ogni 30 giorni)
+          # sta in Firestore, config/instagram. Queste due servono solo come
+          # ripiego se in Firestore non c'è ancora un collegamento; si possono
+          # lasciare vuote. App ID e App Secret non servono ai job: restano su
+          # Vercel, dove li usa la pagina di collegamento.
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}

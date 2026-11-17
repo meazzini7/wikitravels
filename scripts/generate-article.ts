@@ -6,8 +6,9 @@
  * - Immagini caricate su Firebase Storage invece che su disco locale
  * - Aggiunge meta title/description SEO generati dall'AI
  *
- * Uso: eseguito da app/api/cron/generate-article/route.ts (Vercel Cron),
- * oppure manualmente con `npm run generate:article`.
+ * Uso: eseguito da GitHub Actions (.github/workflows/cron.yml, tramite
+ * scripts/run-cron.ts), oppure manualmente con `npm run generate:article`.
+ * La route app/api/cron/generate-article resta solo per un avvio manuale.
  */
 
 import { getAdminDb } from "../lib/firebase-admin";
