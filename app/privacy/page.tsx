@@ -31,20 +31,45 @@ export default function PrivacyPage() {
       </p>
       <p>
         <strong>Statistiche:</strong> usiamo Google Analytics per capire, in forma statistica, quali pagine vengono
-        lette e per quanto tempo. Imposta cookie (_ga) con durata fino a 2 anni.
+        lette e per quanto tempo. Imposta cookie (<code>_ga</code>) con durata fino a 2 anni. Puoi disattivarlo con il{" "}
+        <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer">
+          componente aggiuntivo di Google per il browser
+        </a>
+        .
       </p>
       <p>
-        <strong>Pubblicità:</strong> il sito può mostrare annunci di Google AdSense. Google e i suoi partner possono
-        usare cookie per mostrare annunci in base alle tue visite a questo e ad altri siti. Puoi gestire o disattivare
-        gli annunci personalizzati da{" "}
-        <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">
-          adssettings.google.com
-        </a>{" "}
-        e leggere come Google usa i dati su{" "}
+        <strong>Pubblicità:</strong> il sito mostra o può mostrare annunci di Google AdSense. Google e i suoi partner
+        (fornitori terzi) usano cookie e identificativi del dispositivo per mostrare annunci in base alle tue visite a
+        questo e ad altri siti web. Questo permette di rendere gli annunci più pertinenti e di misurarne i risultati;
+        per farlo vengono trattati dati come indirizzo IP, tipo di browser e dispositivo e pagine visitate.
+      </p>
+      <p>Puoi decidere tu se ricevere annunci personalizzati:</p>
+      <ul>
+        <li>
+          dalle impostazioni annunci di Google:{" "}
+          <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">
+            adssettings.google.com
+          </a>
+          ;
+        </li>
+        <li>
+          dal sito europeo{" "}
+          <a href="https://www.youronlinechoices.com/it/" target="_blank" rel="noopener noreferrer">
+            youronlinechoices.com
+          </a>
+          , dove puoi disattivare gli annunci personalizzati di molti fornitori;
+        </li>
+        <li>
+          dalle impostazioni del tuo browser, cancellando o bloccando i cookie (alcune parti del sito potrebbero
+          funzionare meno bene).
+        </li>
+      </ul>
+      <p>
+        Come Google usa i dati dei siti che usano i suoi servizi è spiegato su{" "}
         <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">
           policies.google.com/technologies/partner-sites
         </a>
-        . Puoi anche cancellare o bloccare i cookie dalle impostazioni del browser.
+        . Se per gli annunci è richiesto il tuo consenso, ti verrà chiesto con un avviso sul sito.
       </p>
 
       <h2>Se crei un account</h2>
@@ -97,13 +122,19 @@ export default function PrivacyPage() {
       <h2>I tuoi diritti</h2>
       <p>
         Puoi chiedere di accedere ai tuoi dati, correggerli, cancellarli, limitarne l&apos;uso, riceverli in un
-        formato portabile e opporti al trattamento;. Scrivi a{" "}
+        formato portabile e opporti al trattamento. Scrivi a{" "}
         <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Se ritieni che i tuoi diritti non siano rispettati
         puoi rivolgerti al Garante per la protezione dei dati personali (
         <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">
           garanteprivacy.it
         </a>
         ).
+      </p>
+
+      <h2>Link a siti esterni</h2>
+      <p>
+        Il sito contiene link a siti di terzi (per esempio i pulsanti di condivisione o i crediti delle fotografie).
+        Non controlliamo come quei siti trattano i dati: leggi le loro informative.
       </p>
 
       <h2>Minori</h2>
