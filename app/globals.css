@@ -39,6 +39,111 @@
   }
 }
 
+@layer components {
+  /* Contenitore delle pagine: su schermi grandi si allarga invece di restare
+     una colonna stretta al centro (1100px da 1024, poi 1500 / 1760 / 1900). */
+  .wrap {
+    @apply mx-auto w-full max-w-4xl px-4;
+  }
+  @media (min-width: 1024px) {
+    .wrap {
+      max-width: 1100px;
+    }
+  }
+  @media (min-width: 1280px) {
+    .wrap {
+      max-width: 1500px;
+      padding-inline: 24px;
+    }
+  }
+  @media (min-width: 1600px) {
+    .wrap {
+      max-width: 1760px;
+    }
+  }
+  @media (min-width: 1900px) {
+    .wrap {
+      max-width: 1900px;
+    }
+  }
+
+  /* Griglie di card che aggiungono colonne quando c'è spazio. */
+  .auto-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 640px) {
+    .auto-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .auto-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .auto-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+  }
+  @media (min-width: 1536px) {
+    .auto-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1900px) {
+    .auto-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  /* Variante con card più grandi (feed, i miei viaggi): al massimo 4 colonne. */
+  .auto-grid-lg {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 640px) {
+    .auto-grid-lg {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .auto-grid-lg {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+  }
+  @media (min-width: 1600px) {
+    .auto-grid-lg {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* Home: più guide quando c'è spazio, sempre a righe complete
+     (6 colonne x 2 righe = 12 ecc., vedi components/LatestGuides.tsx). */
+  .latest-grid > :nth-child(n + 7) {
+    display: none;
+  }
+  @media (min-width: 1280px) {
+    .latest-grid > :nth-child(-n + 8) {
+      display: block;
+    }
+  }
+  @media (min-width: 1536px) {
+    .latest-grid > :nth-child(-n + 10) {
+      display: block;
+    }
+  }
+  @media (min-width: 1900px) {
+    .latest-grid > :nth-child(-n + 12) {
+      display: block;
+    }
+  }
+}
+
 @layer utilities {
   .text-gradient-brand {
     @apply bg-gradient-to-r from-brand-600 via-brand-500 to-lagoon-500 bg-clip-text text-transparent;

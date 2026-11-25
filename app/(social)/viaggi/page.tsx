@@ -47,7 +47,7 @@ export default function ViaggiPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+    <main className="wrap py-6 sm:py-8">
       <PageHero eyebrow="I tuoi ricordi" title="I miei viaggi 🧳" className="mb-6">
         <Link
           href="/viaggi/nuovo"
@@ -57,7 +57,7 @@ export default function ViaggiPage() {
         </Link>
       </PageHero>
       {loadingTrips ? (
-        <div className="flex flex-col gap-4">
+        <div className="auto-grid-lg">
           {[0, 1].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-3xl bg-gray-100" />
           ))}
@@ -72,7 +72,7 @@ export default function ViaggiPage() {
           </Link>
         </EmptyState>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="auto-grid-lg">
           {trips.map((trip) => (
             <li key={trip.id}>
               <Link href={`/viaggi/${trip.id}`} className="tap-scale card-surface flex gap-4 p-3 hover:border-brand-200">

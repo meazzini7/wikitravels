@@ -37,7 +37,8 @@ export default function Navbar() {
   }, [user]);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-brand-100/70 bg-white/85 px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-brand-100/70 bg-white/85 backdrop-blur-md">
+      <div className="wrap flex h-16 items-center justify-between">
       <Link href="/" className="flex items-center gap-2">
         <FlamingoMascot className="h-9 w-9" />
         <span className="font-heading text-xl font-extrabold text-gradient-brand">WikiTravels</span>
@@ -125,6 +126,7 @@ export default function Navbar() {
         )}
         <MobileMenu hasUnread={hasUnread} />
       </nav>
+      </div>
     </header>
   );
 }

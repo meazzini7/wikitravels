@@ -47,7 +47,7 @@ export default function ClassificaPage() {
   const rest = profiles.slice(3);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+    <main className="wrap py-6 sm:py-8">
       <PageHero eyebrow="Sfida i tuoi amici" title="Classifica viaggiatori 🏆" subtitle="Chi ha percorso più km" className="mb-6" />
 
       {loadingList ? (
@@ -55,9 +55,9 @@ export default function ClassificaPage() {
       ) : profiles.length === 0 ? (
         <EmptyState title="Nessun viaggiatore in classifica ancora" />
       ) : (
-        <>
+        <div className="lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[440px_minmax(0,1fr)] xl:gap-8">
           {podium.length > 0 && (
-            <div className="card-surface mb-6 flex items-end justify-center gap-3 px-4 pb-4 pt-6">
+            <div className="card-surface mb-6 flex items-end justify-center gap-3 px-4 pb-4 pt-6 lg:sticky lg:top-20 lg:mb-0">
               {PODIUM_ORDER.filter((i) => podium[i]).map((i) => (
                 <Link key={podium[i].uid} href={`/utenti/${podium[i].uid}`} className="flex flex-col items-center gap-1.5">
                   <span className="text-xl">{MEDALS[i]}</span>
@@ -78,7 +78,7 @@ export default function ClassificaPage() {
           )}
 
           {rest.length > 0 && (
-            <ol className="flex flex-col gap-2">
+            <ol className="flex flex-col gap-2 xl:grid xl:grid-cols-2">
               {rest.map((p, i) => (
                 <li key={p.uid}>
                   <Link
@@ -99,7 +99,7 @@ export default function ClassificaPage() {
               ))}
             </ol>
           )}
-        </>
+        </div>
       )}
     </main>
   );

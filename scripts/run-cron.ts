@@ -21,6 +21,7 @@ import { appendFileSync } from "node:fs";
 import { generateArticle } from "./generate-article";
 import { generatePromoPost } from "./generate-promo-post";
 import { sendDailyReportEmail } from "./daily-report";
+import { getSiteUrl } from "../lib/site-url";
 
 type SocialResult = { ok: boolean; error?: string };
 type SocialOutcome = { facebook?: SocialResult; instagram?: SocialResult };
@@ -35,17 +36,37 @@ function socialFailures(social: SocialOutcome | undefined): string[] {
     .map((channel) => `${channel}: ${String(social[channel]?.error ?? "errore sconosciuto").slice(0, MAX_ERROR_LENGTH)}`);
 }
 
+// Dopo la pubblicazione chiede al sito di rigenerare subito home, enciclopedia
+// e sitemap (vedi app/api/revalidate/route.ts); altrimenti il nuovo articolo
+// comparirebbe negli elenchi solo alla rigenerazione oraria. Non è mai un
+// errore del job: se manca il segreto o il sito non risponde, gli elenchi si
+// aggiornano comunque entro un'ora.
+async function refreshSiteLists(): Promise<string> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return "elenchi del sito: aggiornamento immediato non attivo (manca CRON_SECRET tra i secrets), si aggiornano entro un'ora";
+  try {
+    const res = await fetch(`${getSiteUrl()}/api/revalidate`, {
+      headers: { authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    return res.ok ? "elenchi del sito aggiornati subito" : `elenchi del sito: aggiornamento immediato rifiutato (${res.status}), si aggiornano entro un'ora`;
+  } catch {
+    return "elenchi del sito: aggiornamento immediato non riuscito, si aggiornano entro un'ora";
+  }
+}
+
 async function runArticle(): Promise<Outcome> {
   const result = await generateArticle();
   if (!result) {
     return { ok: true, summary: "Nessun nuovo articolo: l'indirizzo scelto esisteva già, riproverà alla prossima corsa.", failures: [] };
   }
+  const refreshed = await refreshSiteLists();
   const failures = socialFailures(result.social);
   return {
     ok: failures.length === 0,
     summary: `Articolo pubblicato: "${result.title}" (/enciclopedia/${result.slug}). Facebook: ${
       result.social.facebook.ok ? "ok" : "NO"
-    }, Instagram: ${result.social.instagram.ok ? "ok" : "NO"}.`,
+    }, Instagram: ${result.social.instagram.ok ? "ok" : "NO"}. ${refreshed[0].toUpperCase()}${refreshed.slice(1)}.`,
     failures,
   };
 }

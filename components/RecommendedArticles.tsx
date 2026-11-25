@@ -38,7 +38,7 @@ export default function RecommendedArticles({ articles }: RecommendedArticlesPro
       .map((article) => ({ article, score: computeMatchScore(profile.interests, article.scores) }))
       .filter((m) => m.score >= MIN_MATCH_PERCENT)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 4);
+      .slice(0, 6);
   }, [articles, profile]);
 
   if (recommended.length === 0) return null;
@@ -46,9 +46,9 @@ export default function RecommendedArticles({ articles }: RecommendedArticlesPro
   return (
     <div className="mb-8">
       <h2 className="mb-3 font-heading text-lg font-bold text-gray-900">{t("recommendedTitle")}</h2>
-      <ul className="flex gap-3 overflow-x-auto pb-1">
+      <ul className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible xl:grid-cols-6">
         {recommended.map(({ article, score }) => (
-          <li key={article.slug} className="w-40 shrink-0">
+          <li key={article.slug} className="w-40 shrink-0 lg:w-auto">
             <Link
               href={`/enciclopedia/${article.slug}`}
               className="tap-scale card-surface block overflow-hidden hover:border-brand-200"

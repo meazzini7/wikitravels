@@ -94,4 +94,7 @@ jobs:
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          # Stesso valore di Vercel: serve solo a chiedere al sito di aggiornare
+          # subito gli elenchi dopo un nuovo articolo (facoltativo).
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: npx tsx --conditions=react-server scripts/run-cron.ts "$JOB"
