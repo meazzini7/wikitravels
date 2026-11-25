@@ -61,7 +61,7 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+    <main className="wrap py-6 sm:py-8">
       <PageHero
         eyebrow="Scopri"
         title="Feed viaggi 🧭"
@@ -69,7 +69,7 @@ export default function FeedPage() {
         className="mb-6"
       />
       {loadingFeed ? (
-        <div className="flex flex-col gap-4">
+        <div className="auto-grid-lg">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-40 animate-pulse rounded-3xl bg-gray-100" />
           ))}
@@ -77,7 +77,7 @@ export default function FeedPage() {
       ) : rankedTrips.length === 0 ? (
         <EmptyState title="Nessun viaggio pubblicato ancora" description="Torna presto, la community cresce ogni giorno!" />
       ) : (
-        <ul className="flex flex-col gap-4">
+        <ul className="auto-grid-lg">
           {rankedTrips.map(({ trip, matchScore }) => (
             <li key={trip.id} className="card-surface overflow-hidden">
               <Link href={`/viaggi/${trip.id}`} className="block">
@@ -88,7 +88,7 @@ export default function FeedPage() {
                       alt={trip.title}
                       fill
                       className="object-cover"
-                      sizes="512px"
+                      sizes="(min-width: 1600px) 440px, (min-width: 1280px) 480px, (min-width: 640px) 50vw, 100vw"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-brand-300">

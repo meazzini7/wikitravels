@@ -83,7 +83,9 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   const article = await getLocalizedArticle(params.slug, locale);
   if (!article) notFound();
 
-  const relatedArticles = pickRelated(await getArticleCards(), article);
+  // 5 per la colonna laterale (schermi grandi), i primi 3 per la fine pagina.
+  const relatedAside = pickRelated(await getArticleCards(), article, 5);
+  const relatedArticles = relatedAside.slice(0, 3);
   const publishedDate = toIsoDate(article.createdAt);
   // Gli articoli rinnovati (vedi scripts/rewrite-article.ts) hanno una data
   // di aggiornamento distinta da quella di prima pubblicazione.
@@ -133,7 +135,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+    <main className="wrap py-6 sm:py-8">
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       {/* eslint-disable-next-line react/no-danger */}
@@ -142,6 +144,29 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         // eslint-disable-next-line react/no-danger
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />
       )}
+      {/* Schermi grandi (da 1280px): indice a sinistra, testo al centro,
+          guide correlate a destra. Sotto, tutto in una colonna come prima. */}
+      <div className="mx-auto xl:grid xl:max-w-[1500px] xl:grid-cols-[230px_minmax(0,1fr)_300px] xl:items-start xl:gap-8">
+        {toc.length >= 4 ? (
+          <aside className="hidden xl:block" aria-label={dict.tocTitle}>
+            <nav className="card-surface sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto p-4">
+              <p className="mb-2 font-heading text-sm font-bold text-gray-900">{dict.tocTitle}</p>
+              <ol className="flex flex-col gap-1.5 text-sm">
+                {toc.map((item) => (
+                  <li key={item.id}>
+                    <a href={`#${item.id}`} className="text-brand-700 hover:underline">
+                      {item.text}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </aside>
+        ) : (
+          <div className="hidden xl:block" aria-hidden />
+        )}
+
+        <div className="mx-auto w-full min-w-0 max-w-3xl xl:max-w-[52rem]">
       {article.coverImageUrl && (
         <div className="relative mb-6 h-64 w-full overflow-hidden rounded-3xl shadow-soft sm:h-80">
           <Image
@@ -149,7 +174,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             alt={article.displayTitle}
             fill
             className="object-cover"
-            sizes="768px"
+            sizes="(min-width: 1280px) 832px, (min-width: 768px) 768px, 100vw"
             priority
           />
           <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
@@ -201,7 +226,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       </div>
 
       {toc.length >= 4 && (
-        <nav aria-label={dict.tocTitle} className="card-surface mb-6 p-4 sm:p-5">
+        <nav aria-label={dict.tocTitle} className="card-surface mb-6 p-4 sm:p-5 xl:hidden">
           <p className="mb-2 font-heading text-sm font-bold text-gray-900">{dict.tocTitle}</p>
           <ol className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
             {toc.map((item) => (
@@ -241,7 +266,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       )}
 
       {relatedArticles.length > 0 && (
-        <section>
+        <section className="xl:hidden">
           <h2 className="mb-4 font-heading text-lg font-bold text-gray-900">{dict.relatedTitle}</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {relatedArticles.map((related) => (
@@ -268,6 +293,42 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </div>
         </section>
       )}
+        </div>
+
+        {relatedAside.length > 0 ? (
+          <aside className="hidden xl:block" aria-label={dict.relatedTitle}>
+            <div className="sticky top-20">
+              <h2 className="mb-3 font-heading text-base font-bold text-gray-900">{dict.relatedTitle}</h2>
+              <ul className="flex flex-col gap-3">
+                {relatedAside.map((related) => (
+                  <li key={related.slug}>
+                    <Link
+                      href={`/enciclopedia/${related.slug}`}
+                      className="tap-scale card-surface flex gap-3 overflow-hidden p-2 hover:border-brand-200"
+                    >
+                      <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-brand-100 to-lagoon-100">
+                        {related.coverImageUrl ? (
+                          <Image src={related.coverImageUrl} alt={related.title} fill className="object-cover" sizes="80px" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-brand-300">
+                            <FlamingoMascot className="h-7 w-7" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-brand-600">{related.destination}</p>
+                        <h3 className="line-clamp-2 font-heading text-sm font-bold text-gray-900">{related.title}</h3>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        ) : (
+          <div className="hidden xl:block" aria-hidden />
+        )}
+      </div>
     </main>
   );
 }

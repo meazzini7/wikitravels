@@ -10,7 +10,7 @@ import { getDictionary } from "@/lib/i18n/dictionary";
 // ai motori di ricerca) e non dipende da chiamate fatte dal browser. Usa la
 // lingua predefinita come il resto del guscio statico (vedi app/layout.tsx).
 export default async function LatestGuides() {
-  const guides = (await getArticleCards()).slice(0, 6);
+  const guides = (await getArticleCards()).slice(0, 12);
   if (guides.length === 0) return null;
   const dict = getDictionary(DEFAULT_LOCALE).enciclopedia;
 
@@ -22,7 +22,7 @@ export default async function LatestGuides() {
           {dict.allGuides}
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="auto-grid latest-grid">
         {guides.map((guide) => (
           <Link
             key={guide.slug}

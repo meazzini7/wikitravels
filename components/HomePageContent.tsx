@@ -62,7 +62,7 @@ export default function HomePageContent({ guides }: { guides?: React.ReactNode }
   const worldPercent = Math.round((countriesReached / TOTAL_COUNTRIES) * 100);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
+    <main className="wrap py-6 sm:py-10">
       <section className="relative mb-8 overflow-hidden rounded-4xl bg-gradient-to-br from-brand-600 via-brand-500 to-lagoon-500 px-6 py-10 text-center text-white shadow-pop sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -right-10 -top-14 h-52 w-52 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-white/10" />
@@ -147,7 +147,7 @@ export default function HomePageContent({ guides }: { guides?: React.ReactNode }
             )}
           </div>
           <p className="mb-3 text-sm text-gray-500">{t("worldSubtitle")}</p>
-          <WorldMap values={countryCounts} mode="gradient" className="h-72 w-full rounded-2xl" />
+          <WorldMap values={countryCounts} mode="gradient" className="h-72 w-full rounded-2xl lg:h-[26rem] xl:h-[30rem]" />
         </div>
       </section>
 
@@ -174,7 +174,7 @@ export default function HomePageContent({ guides }: { guides?: React.ReactNode }
             </Link>
           </EmptyState>
         ) : (
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0">
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-6 sm:overflow-visible sm:px-0">
             {trips.slice(0, 12).map((trip) => (
               <Link
                 key={trip.id}

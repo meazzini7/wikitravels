@@ -44,7 +44,7 @@ export default async function EnciclopediaPage() {
   const dict = getDictionary(DEFAULT_LOCALE).enciclopedia;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
+    <main className="wrap py-6 sm:py-10">
       <div className="relative mb-8 overflow-hidden rounded-4xl bg-gradient-to-br from-lagoon-600 via-lagoon-500 to-brand-500 px-6 py-8 text-center text-white shadow-pop sm:px-10 sm:py-10">
         <h1 className="font-heading text-2xl font-extrabold sm:text-4xl">{dict.heroTitle}</h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-white/90 sm:text-base">{dict.heroSubtitle}</p>
@@ -65,7 +65,7 @@ export default async function EnciclopediaPage() {
               scores: a.scores,
             }))}
           />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="auto-grid">
             {articles.map((article) => (
               <Link
                 key={article.slug}
